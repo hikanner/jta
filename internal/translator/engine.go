@@ -119,11 +119,11 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	result.Stats.FailedItems = result.Stats.TotalItems - result.Stats.SuccessItems
 
 	// Step 6: Rebuild JSON structure with translations
-	rebuilt := e.rebuildJSON(input.Source, translations)
+	rebuilt := e.rebuildJSONWithPath(sourceData, translations, "")
 	if targetMap, ok := rebuilt.(map[string]interface{}); ok {
 		result.Target = targetMap
 	} else {
-		result.Target = input.Source // fallback to source if rebuild fails
+		result.Target = sourceData // fallback to source if rebuild fails
 	}
 
 	// Calculate duration
@@ -213,30 +213,38 @@ func (e *Engine) createBatches(items []domain.BatchItem, batchSize int) [][]doma
 	return batches
 }
 
-// rebuildJSON rebuilds the JSON structure with translations
-func (e *Engine) rebuildJSON(source interface{}, translations map[string]string) interface{} {
+// rebuildJSONWithPath rebuilds the JSON structure with translations, tracking key paths
+func (e *Engine) rebuildJSONWithPath(source interface{}, translations map[string]string, currentPath string) interface{} {
 	switch v := source.(type) {
 	case map[string]interface{}:
 		result := make(map[string]interface{})
 		for key, value := range v {
-			result[key] = e.rebuildJSON(value, translations)
+			keyPath := key
+			if currentPath != "" {
+				keyPath = currentPath + "." + key
+			}
+			result[key] = e.rebuildJSONWithPath(value, translations, keyPath)
 		}
 		return result
 
 	case []interface{}:
 		result := make([]interface{}, len(v))
 		for i, value := range v {
-			result[i] = e.rebuildJSON(value, translations)
+			keyPath := fmt.Sprintf("%s[%d]", currentPath, i)
+			result[i] = e.rebuildJSONWithPath(value, translations, keyPath)
 		}
 		return result
 
 	case string:
-		// This would need the key path, which we need to track during rebuild
-		// For now, return the original value
-		// This needs to be implemented properly with key path tracking
+		// Check if we have a translation for this key path
+		if translation, ok := translations[currentPath]; ok {
+			return translation
+		}
+		// Return original value if no translation found
 		return v
 
 	default:
+		// Non-string values (numbers, booleans, null) remain unchanged
 		return v
 	}
 }
