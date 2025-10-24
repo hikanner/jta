@@ -12,6 +12,7 @@ import (
 	"github.com/hikanner/jta/internal/provider"
 	"github.com/hikanner/jta/internal/terminology"
 	"github.com/hikanner/jta/internal/translator"
+	"github.com/hikanner/jta/internal/ui"
 	"github.com/hikanner/jta/internal/utils"
 )
 
@@ -47,6 +48,7 @@ type App struct {
 	incr        *incremental.Translator
 	jsonUtil    *utils.JSONUtil
 	config      AppConfig
+	ui          *ui.Printer
 }
 
 // NewApp creates a new application instance
@@ -90,17 +92,20 @@ func NewApp(ctx context.Context, config AppConfig) (*App, error) {
 		incr:        incrTranslator,
 		jsonUtil:    utils.NewJSONUtil(),
 		config:      config,
+		ui:          ui.NewPrinter(config.Verbose),
 	}, nil
 }
 
 // Translate performs the translation workflow
 func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	// Step 1: Load source JSON
-	fmt.Println("📖 Loading source file...")
+	a.ui.PrintStep(ui.IconFile, "Loading source file...")
 	source, err := a.jsonUtil.LoadJSON(params.SourcePath)
 	if err != nil {
+		a.ui.PrintError(fmt.Sprintf("Failed to load source: %v", err))
 		return fmt.Errorf("failed to load source: %w", err)
 	}
+	a.ui.PrintSuccess("Source file loaded")
 
 	// Step 2: Determine output path
 	outputPath := params.OutputPath
@@ -127,28 +132,31 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	// Step 4: Analyze diff if target exists
 	var diff *incremental.DiffResult
 	if targetExists {
-		fmt.Println("🔍 Analyzing changes...")
+		a.ui.PrintStep(ui.IconMagnify, "Analyzing changes...")
 		diff, err = a.incr.AnalyzeDiff(source, target)
 		if err != nil {
+			a.ui.PrintError(fmt.Sprintf("Failed to analyze diff: %v", err))
 			return fmt.Errorf("failed to analyze diff: %w", err)
 		}
 
-		fmt.Printf("   ✨ New: %d keys\n", diff.Stats.NewCount)
-		fmt.Printf("   🔄 Modified: %d keys\n", diff.Stats.ModifiedCount)
-		fmt.Printf("   ✅ Unchanged: %d keys\n", diff.Stats.UnchangedCount)
+		a.ui.PrintSubtle(fmt.Sprintf("New: %s keys", a.ui.FormatNumber(diff.Stats.NewCount)))
+		a.ui.PrintSubtle(fmt.Sprintf("Modified: %s keys", a.ui.FormatNumber(diff.Stats.ModifiedCount)))
+		a.ui.PrintSubtle(fmt.Sprintf("Unchanged: %s keys", a.ui.FormatNumber(diff.Stats.UnchangedCount)))
 
 		if !a.incr.ShouldTranslate(diff, params.Force) {
-			fmt.Println("✅ No changes detected, skipping translation")
+			a.ui.PrintSuccess("No changes detected, skipping translation")
 			return nil
 		}
 
 		if !params.Yes {
-			fmt.Printf("\n💡 Will translate %d keys, keep %d unchanged. Continue? [Y/n] ",
-				diff.Stats.NewCount+diff.Stats.ModifiedCount, diff.Stats.UnchangedCount)
+			a.ui.PrintInfo(fmt.Sprintf("Will translate %d keys, keep %d unchanged",
+				diff.Stats.NewCount+diff.Stats.ModifiedCount, diff.Stats.UnchangedCount))
+			fmt.Print("Continue? [Y/n] ")
 
 			var response string
 			fmt.Scanln(&response)
 			if strings.ToLower(response) == "n" {
+				a.ui.PrintWarning("Cancelled by user")
 				return fmt.Errorf("cancelled by user")
 			}
 		}
@@ -159,20 +167,22 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 
 	if !params.NoTerminology {
 		if a.termManager.TerminologyExists(params.TermPath) {
-			fmt.Println("📚 Loading terminology...")
+			a.ui.PrintStep(ui.IconBook, "Loading terminology...")
 			term, err = a.termManager.LoadTerminology(params.TermPath)
 			if err != nil {
+				a.ui.PrintError(fmt.Sprintf("Failed to load terminology: %v", err))
 				return fmt.Errorf("failed to load terminology: %w", err)
 			}
+			a.ui.PrintSuccess("Terminology loaded")
 		} else if !params.SkipTerms {
-			fmt.Println("🔍 Detecting terminology...")
+			a.ui.PrintStep(ui.IconMagnify, "Detecting terminology...")
 
 			// Extract texts for detection
 			texts := extractTexts(source)
 
 			terms, err := a.termManager.DetectTerms(ctx, texts, "en")
 			if err != nil {
-				fmt.Printf("⚠️  Failed to detect terms: %v\n", err)
+				a.ui.PrintWarning(fmt.Sprintf("Failed to detect terms: %v", err))
 			} else {
 				// Build terminology
 				term = &domain.Terminology{
@@ -189,7 +199,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 					}
 				}
 
-				fmt.Printf("✨ Detected %d terms\n", len(terms))
+				a.ui.PrintSuccess(fmt.Sprintf("Detected %s terms", a.ui.FormatNumber(len(terms))))
 
 				// Save terminology
 				if !params.Yes {
@@ -199,7 +209,9 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 					if strings.ToLower(response) != "n" {
 						err = a.termManager.SaveTerminology(params.TermPath, term)
 						if err != nil {
-							fmt.Printf("⚠️  Failed to save terminology: %v\n", err)
+							a.ui.PrintWarning(fmt.Sprintf("Failed to save terminology: %v", err))
+						} else {
+							a.ui.PrintSuccess("Terminology saved")
 						}
 					}
 				}
@@ -220,7 +232,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	}
 
 	// Step 7: Translate
-	fmt.Println("🤖 Translating...")
+	a.ui.PrintStep(ui.IconRobot, "Translating...")
 
 	result, err := a.engine.Translate(ctx, domain.TranslationInput{
 		Source:      source,
@@ -239,33 +251,43 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	})
 
 	if err != nil {
+		a.ui.PrintError(fmt.Sprintf("Translation failed: %v", err))
 		return fmt.Errorf("translation failed: %w", err)
 	}
 
-	// Step 7: Save result
-	fmt.Println("💾 Saving translation...")
+	a.ui.PrintSuccess("Translation completed")
+
+	// Step 8: Save result
+	a.ui.PrintStep(ui.IconSave, "Saving translation...")
 	err = a.jsonUtil.SaveJSON(outputPath, result.Target)
 	if err != nil {
+		a.ui.PrintError(fmt.Sprintf("Failed to save: %v", err))
 		return fmt.Errorf("failed to save result: %w", err)
 	}
+	a.ui.PrintSuccess(fmt.Sprintf("Saved to %s", outputPath))
 
-	// Step 8: Print stats
-	fmt.Printf("\n📊 Statistics:\n")
+	// Step 9: Print stats
+	fmt.Println() // Empty line for spacing
+	a.ui.PrintHeader("Translation Statistics")
+
+	// Build stats map
+	stats := make(map[string]interface{})
 
 	// Print filter stats if filtering was applied
 	if result.Stats.FilterStats != nil {
-		fmt.Printf("   Filtered keys: %d included, %d excluded (of %d total)\n",
+		stats["Filtered"] = fmt.Sprintf("%d included, %d excluded (of %d total)",
 			result.Stats.FilterStats.IncludedKeys,
 			result.Stats.FilterStats.ExcludedKeys,
 			result.Stats.FilterStats.TotalKeys)
 	}
 
-	fmt.Printf("   Total items: %d\n", result.Stats.TotalItems)
-	fmt.Printf("   Success: %d\n", result.Stats.SuccessItems)
-	fmt.Printf("   Failed: %d\n", result.Stats.FailedItems)
-	fmt.Printf("   Duration: %v\n", result.Stats.Duration)
-	fmt.Printf("   API calls: %d\n", result.Stats.APICallsCount)
-	fmt.Printf("   Output: %s\n", outputPath)
+	stats["Total items"] = result.Stats.TotalItems
+	stats["Success"] = result.Stats.SuccessItems
+	stats["Failed"] = result.Stats.FailedItems
+	stats["Duration"] = result.Stats.Duration.String()
+	stats["API calls"] = result.Stats.APICallsCount
+
+	a.ui.PrintStats(stats)
 
 	return nil
 }
