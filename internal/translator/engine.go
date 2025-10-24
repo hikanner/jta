@@ -15,12 +15,13 @@ import (
 
 // Engine is the main translation engine
 type Engine struct {
-	provider        provider.AIProvider
-	termManager     *terminology.Manager
-	formatProtector *format.Protector
-	batchProcessor  *BatchProcessor
-	keyFilter       *keyfilter.Filter
-	rtlProcessor    *rtl.Processor
+	provider         provider.AIProvider
+	termManager      *terminology.Manager
+	formatProtector  *format.Protector
+	batchProcessor   *BatchProcessor
+	keyFilter        *keyfilter.Filter
+	rtlProcessor     *rtl.Processor
+	reflectionEngine *ReflectionEngine
 }
 
 // NewEngine creates a new translation engine
@@ -29,12 +30,13 @@ func NewEngine(
 	termManager *terminology.Manager,
 ) *Engine {
 	return &Engine{
-		provider:        provider,
-		termManager:     termManager,
-		formatProtector: format.NewProtector(),
-		batchProcessor:  NewBatchProcessor(provider),
-		keyFilter:       keyfilter.NewFilter(),
-		rtlProcessor:    rtl.NewProcessor(),
+		provider:         provider,
+		termManager:      termManager,
+		formatProtector:  format.NewProtector(),
+		batchProcessor:   NewBatchProcessor(provider),
+		keyFilter:        keyfilter.NewFilter(),
+		rtlProcessor:     rtl.NewProcessor(),
+		reflectionEngine: NewReflectionEngine(provider),
 	}
 }
 
@@ -121,7 +123,37 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	result.Stats.SuccessItems = len(translations)
 	result.Stats.FailedItems = result.Stats.TotalItems - result.Stats.SuccessItems
 
-	// Step 5.5: Apply RTL processing if target language is RTL
+	// Step 5.5: Apply lightweight reflection (Agentic quality optimization)
+	if e.reflectionEngine.ShouldReflect(translations, terminology) {
+		reflectionInput := ReflectionInput{
+			SourceTexts:     make(map[string]string),
+			TranslatedTexts: translations,
+			SourceLang:      input.SourceLang,
+			TargetLang:      input.TargetLang,
+			Terminology:     terminology,
+		}
+
+		// Extract source texts for reflection
+		for _, item := range items {
+			reflectionInput.SourceTexts[item.Key] = item.Text
+		}
+
+		reflectionResult, err := e.reflectionEngine.Reflect(ctx, reflectionInput)
+		if err != nil {
+			// Log error but don't fail the entire translation
+			// Reflection is an optimization, not a requirement
+			fmt.Printf("⚠️  Reflection failed: %v\n", err)
+		} else if reflectionResult.ReflectionNeeded && len(reflectionResult.ImprovedTexts) > 0 {
+			// Apply improvements
+			for key, improved := range reflectionResult.ImprovedTexts {
+				translations[key] = improved
+			}
+			// Update stats with additional API calls
+			result.Stats.APICallsCount += reflectionResult.APICallsUsed
+		}
+	}
+
+	// Step 5.6: Apply RTL processing if target language is RTL
 	if e.rtlProcessor.NeedProcessing(input.TargetLang) {
 		translations = e.rtlProcessor.ProcessBatch(translations, input.TargetLang)
 	}
