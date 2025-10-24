@@ -9,6 +9,7 @@ import (
 	"github.com/hikanner/jta/internal/format"
 	"github.com/hikanner/jta/internal/keyfilter"
 	"github.com/hikanner/jta/internal/provider"
+	"github.com/hikanner/jta/internal/rtl"
 	"github.com/hikanner/jta/internal/terminology"
 )
 
@@ -19,6 +20,7 @@ type Engine struct {
 	formatProtector *format.Protector
 	batchProcessor  *BatchProcessor
 	keyFilter       *keyfilter.Filter
+	rtlProcessor    *rtl.Processor
 }
 
 // NewEngine creates a new translation engine
@@ -32,6 +34,7 @@ func NewEngine(
 		formatProtector: format.NewProtector(),
 		batchProcessor:  NewBatchProcessor(provider),
 		keyFilter:       keyfilter.NewFilter(),
+		rtlProcessor:    rtl.NewProcessor(),
 	}
 }
 
@@ -117,6 +120,11 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	result.Stats.TotalTokens = stats.TotalTokens
 	result.Stats.SuccessItems = len(translations)
 	result.Stats.FailedItems = result.Stats.TotalItems - result.Stats.SuccessItems
+
+	// Step 5.5: Apply RTL processing if target language is RTL
+	if e.rtlProcessor.NeedProcessing(input.TargetLang) {
+		translations = e.rtlProcessor.ProcessBatch(translations, input.TargetLang)
+	}
 
 	// Step 6: Rebuild JSON structure with translations
 	rebuilt := e.rebuildJSONWithPath(sourceData, translations, "")
