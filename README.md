@@ -61,9 +61,9 @@ Automatically preserves:
 
 ### 🎨 Multi-Provider Support
 
-- **OpenAI**: GPT-4o, GPT-4 Turbo, GPT-3.5
-- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus/Haiku
-- **Google**: Gemini 2.0 Flash (experimental)
+- **OpenAI**: All models including GPT-4o, GPT-4 Turbo, GPT-3.5, etc.
+- **Anthropic**: All Claude models including Claude 3.5 Sonnet, Claude 3 Opus/Haiku, etc.
+- **Google**: All Gemini models including Gemini 2.0 Flash, Gemini 1.5 Pro, etc.
 
 ## 📦 Installation
 
@@ -164,9 +164,11 @@ Jta automatically protects:
 
 | Provider | Models | Environment Variable |
 |----------|--------|---------------------|
-| OpenAI | GPT-4o, GPT-4 Turbo | `OPENAI_API_KEY` |
-| Anthropic | Claude 3.5 Sonnet | `ANTHROPIC_API_KEY` |
-| Google | Gemini 2.0 Flash | `GEMINI_API_KEY` |
+| OpenAI | All OpenAI models (GPT-4o, GPT-4 Turbo, GPT-3.5, etc.) | `OPENAI_API_KEY` |
+| Anthropic | All Claude models (Claude 3.5 Sonnet, Claude 3 Opus, etc.) | `ANTHROPIC_API_KEY` |
+| Google | All Gemini models (Gemini 2.0 Flash, Gemini 1.5 Pro, etc.) | `GEMINI_API_KEY` |
+
+You can specify any model supported by these providers using the `--model` flag.
 
 ## 🌍 Supported Languages
 
@@ -405,9 +407,16 @@ jta en.json --to zh --api-key sk-...
 
 If translations are not meeting quality expectations:
 
-1. **Use a better model**: GPT-4o > GPT-4 Turbo > GPT-3.5
+1. **Use a better model**: Generally, newer/larger models provide better quality
    ```bash
-   jta en.json --to zh --model gpt-4o
+   # OpenAI
+   jta en.json --to zh --provider openai --model gpt-4o
+   
+   # Anthropic
+   jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20241022
+   
+   # Google
+   jta en.json --to zh --provider google --model gemini-2.0-flash-exp
    ```
 
 2. **Check terminology**: Review and refine `.jta-terminology.json`
@@ -462,10 +471,11 @@ jta large.json --to zh --keys "section2.**"
 1. **Batch Size**: Larger batches (20-50) are more efficient but use more tokens per request
 2. **Concurrency**: Higher concurrency (3-5) speeds up translation but may hit rate limits
 3. **Incremental Mode**: Always use incremental translation for updates (automatic)
-4. **Provider Selection**: 
-   - OpenAI GPT-4o: Best quality, moderate speed
-   - Anthropic Claude 3.5: Great quality, good speed
-   - Google Gemini: Experimental, fastest but may need more reflection passes
+4. **Provider Selection**: Choose based on your needs:
+   - **Quality priority**: Use latest/largest models from any provider
+   - **Speed priority**: Use faster models like GPT-3.5 Turbo or Gemini Flash
+   - **Cost priority**: Compare pricing across providers and choose smaller models
+   - **Balance**: GPT-4o, Claude 3.5 Sonnet, or Gemini 1.5 Pro offer good balance
 
 ### Debug Mode
 
