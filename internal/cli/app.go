@@ -207,7 +207,19 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 		}
 	}
 
-	// Step 6: Translate
+	// Step 6: Parse key filter patterns
+	var keyPatterns []string
+	var excludeKeyPatterns []string
+
+	if params.Keys != "" {
+		keyPatterns = []string{params.Keys}
+	}
+
+	if params.ExcludeKeys != "" {
+		excludeKeyPatterns = []string{params.ExcludeKeys}
+	}
+
+	// Step 7: Translate
 	fmt.Println("🤖 Translating...")
 
 	result, err := a.engine.Translate(ctx, domain.TranslationInput{
@@ -221,6 +233,8 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 			SkipTerms:     params.SkipTerms,
 			NoTerminology: params.NoTerminology,
 			Force:         params.Force,
+			Keys:          keyPatterns,
+			ExcludeKeys:   excludeKeyPatterns,
 		},
 	})
 
@@ -237,6 +251,15 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 
 	// Step 8: Print stats
 	fmt.Printf("\n📊 Statistics:\n")
+
+	// Print filter stats if filtering was applied
+	if result.Stats.FilterStats != nil {
+		fmt.Printf("   Filtered keys: %d included, %d excluded (of %d total)\n",
+			result.Stats.FilterStats.IncludedKeys,
+			result.Stats.FilterStats.ExcludedKeys,
+			result.Stats.FilterStats.TotalKeys)
+	}
+
 	fmt.Printf("   Total items: %d\n", result.Stats.TotalItems)
 	fmt.Printf("   Success: %d\n", result.Stats.SuccessItems)
 	fmt.Printf("   Failed: %d\n", result.Stats.FailedItems)

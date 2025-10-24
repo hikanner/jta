@@ -7,6 +7,7 @@ import (
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/format"
+	"github.com/hikanner/jta/internal/keyfilter"
 	"github.com/hikanner/jta/internal/provider"
 	"github.com/hikanner/jta/internal/terminology"
 )
@@ -17,6 +18,7 @@ type Engine struct {
 	termManager     *terminology.Manager
 	formatProtector *format.Protector
 	batchProcessor  *BatchProcessor
+	keyFilter       *keyfilter.Filter
 }
 
 // NewEngine creates a new translation engine
@@ -29,6 +31,7 @@ func NewEngine(
 		termManager:     termManager,
 		formatProtector: format.NewProtector(),
 		batchProcessor:  NewBatchProcessor(provider),
+		keyFilter:       keyfilter.NewFilter(),
 	}
 }
 
@@ -43,8 +46,37 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 		},
 	}
 
-	// Step 1: Extract translatable items from source JSON
-	items, err := e.extractTranslatableItems(input.Source, "")
+	// Step 1: Apply key filtering if patterns are provided
+	sourceData := input.Source
+	if len(input.Options.Keys) > 0 || len(input.Options.ExcludeKeys) > 0 {
+		includePatterns, err := e.parseKeyPatterns(input.Options.Keys)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse include patterns: %w", err)
+		}
+
+		excludePatterns, err := e.parseKeyPatterns(input.Options.ExcludeKeys)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse exclude patterns: %w", err)
+		}
+
+		filterResult, err := e.keyFilter.FilterKeys(input.Source, includePatterns, excludePatterns)
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter keys: %w", err)
+		}
+
+		// Rebuild filtered JSON structure
+		sourceData = e.keyFilter.RebuildJSON(filterResult.Included)
+
+		// Store filter stats
+		result.Stats.FilterStats = &domain.FilterStats{
+			TotalKeys:    filterResult.Stats.TotalKeys,
+			IncludedKeys: filterResult.Stats.IncludedKeys,
+			ExcludedKeys: filterResult.Stats.ExcludedKeys,
+		}
+	}
+
+	// Step 2: Extract translatable items from source JSON
+	items, err := e.extractTranslatableItems(sourceData, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract translatable items: %w", err)
 	}
@@ -221,4 +253,22 @@ func containsAny(s string, substrs []string) bool {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr ||
 		(len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr)))
+}
+
+// parseKeyPatterns parses key patterns from string slice
+func (e *Engine) parseKeyPatterns(patterns []string) ([]*keyfilter.KeyPattern, error) {
+	if len(patterns) == 0 {
+		return nil, nil
+	}
+
+	var result []*keyfilter.KeyPattern
+	for _, pattern := range patterns {
+		parsed, err := e.keyFilter.ParsePatterns(pattern)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, parsed...)
+	}
+
+	return result, nil
 }

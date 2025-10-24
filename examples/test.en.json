@@ -1,0 +1,23 @@
+{
+  "app": {
+    "name": "My Application",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure your application",
+    "theme": {
+      "dark": "Dark Mode",
+      "light": "Light Mode"
+    }
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "messages": {
+    "welcome": "Welcome to our application",
+    "error": "An error occurred"
+  }
+}
