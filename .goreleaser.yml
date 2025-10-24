@@ -1,0 +1,185 @@
+# GoReleaser configuration for Jta
+# https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    # Clean up before building
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: jta
+    binary: jta
+    main: ./cmd/jta
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore combinations that don't make sense
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    flags:
+      - -trimpath
+
+archives:
+  - id: jta
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CONTRIBUTING.md
+      - examples/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'typo'
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: hikanner
+    name: jta
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Jta {{ .Tag }} Release
+
+    {{ if .IsLatest }}
+    This is the latest stable release of Jta.
+    {{ end }}
+
+    ### Installation
+
+    #### Using Go
+    ```bash
+    go install github.com/hikanner/jta/cmd/jta@{{ .Tag }}
+    ```
+
+    #### Download Binary
+    Download the appropriate binary for your system from the assets below.
+
+    ### What's Changed
+  footer: |
+    ### Full Changelog
+
+    See the full changelog at https://github.com/hikanner/jta/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ### Contributors
+
+    Thank you to all contributors who made this release possible! 🎉
+
+# Homebrew tap (optional)
+brews:
+  - repository:
+      owner: hikanner
+      name: homebrew-jta
+    name: jta
+    homepage: https://github.com/hikanner/jta
+    description: "AI-powered Agentic JSON Translation tool"
+    license: MIT
+    skip_upload: auto
+    folder: Formula
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    install: |
+      bin.install "jta"
+    test: |
+      system "#{bin}/jta", "--version"
+
+# Docker images (optional)
+dockers:
+  - image_templates:
+      - "ghcr.io/hikanner/jta:{{ .Version }}-amd64"
+      - "ghcr.io/hikanner/jta:latest-amd64"
+    use: buildx
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    dockerfile: Dockerfile
+    skip_push: auto
+
+  - image_templates:
+      - "ghcr.io/hikanner/jta:{{ .Version }}-arm64"
+      - "ghcr.io/hikanner/jta:latest-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    dockerfile: Dockerfile
+    skip_push: auto
+
+docker_manifests:
+  - name_template: "ghcr.io/hikanner/jta:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/hikanner/jta:{{ .Version }}-amd64"
+      - "ghcr.io/hikanner/jta:{{ .Version }}-arm64"
+    skip_push: auto
+
+  - name_template: "ghcr.io/hikanner/jta:latest"
+    image_templates:
+      - "ghcr.io/hikanner/jta:latest-amd64"
+      - "ghcr.io/hikanner/jta:latest-arm64"
+    skip_push: auto
+
+# Announcements (optional)
+announce:
+  skip: true
