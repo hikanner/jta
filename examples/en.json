@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "Jta",
+    "description": "AI-powered JSON translation tool",
+    "welcome": "Welcome to {appName}!"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications"
+  },
+  "user": {
+    "profile": "User Profile",
+    "name": "Name",
+    "email": "Email Address",
+    "credits": "You have {count} credits remaining"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Are you sure you want to proceed?"
+  },
+  "messages": {
+    "success": "Operation completed successfully!",
+    "error": "An error occurred. Please try again.",
+    "loading": "Loading...",
+    "noData": "No data available"
+  }
+}

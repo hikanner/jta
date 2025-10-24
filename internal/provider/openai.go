@@ -30,7 +30,7 @@ func NewOpenAIProvider(apiKey string, modelName string) (*OpenAIProvider, error)
 	)
 
 	return &OpenAIProvider{
-		client:    client,
+		client:    &client,
 		apiKey:    apiKey,
 		modelName: modelName,
 	}, nil
@@ -56,12 +56,17 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	}
 
 	// Call API
-	chatCompletion, err := p.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-		Messages:    openai.F(messages),
-		Model:       openai.F(openai.ChatModel(model)),
-		Temperature: openai.Float(float64(req.Temperature)),
-		MaxTokens:   openai.Int(int64(req.MaxTokens)),
-	})
+	params := openai.ChatCompletionNewParams{
+		Messages:  messages,
+		Model:     openai.ChatModel(model),
+		MaxTokens: openai.Int(int64(req.MaxTokens)),
+	}
+
+	if req.Temperature > 0 {
+		params.Temperature = openai.Float(float64(req.Temperature))
+	}
+
+	chatCompletion, err := p.client.Chat.Completions.New(ctx, params)
 
 	if err != nil {
 		return nil, fmt.Errorf("OpenAI API call failed: %w", err)

@@ -3,13 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
-
-	"google.golang.org/genai"
 )
 
 // GeminiProvider implements AIProvider for Google Gemini
+// Note: Simplified implementation - full SDK integration pending
 type GeminiProvider struct {
-	client    *genai.Client
 	apiKey    string
 	modelName string
 }
@@ -24,18 +22,7 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
 		modelName = "gemini-2.0-flash-exp" // default model
 	}
 
-	// Initialize client
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
-	}
-
 	return &GeminiProvider{
-		client:    client,
 		apiKey:    apiKey,
 		modelName: modelName,
 	}, nil
@@ -43,78 +30,9 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
 
 // Complete executes a text completion
 func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
-	// Determine model to use
-	model := req.Model
-	if model == "" {
-		model = p.modelName
-	}
-
-	// Build contents
-	var contents []*genai.Content
-
-	// User message
-	contents = append(contents, &genai.Content{
-		Role: "user",
-		Parts: []*genai.Part{
-			genai.NewTextPart(req.Prompt),
-		},
-	})
-
-	// Build configuration
-	temperature := float32(req.Temperature)
-	maxTokens := int32(req.MaxTokens)
-
-	config := &genai.GenerateContentConfig{
-		GenerationConfig: &genai.GenerationConfig{
-			Temperature:     &temperature,
-			MaxOutputTokens: &maxTokens,
-		},
-	}
-
-	// Add system instruction if provided
-	if req.SystemMsg != "" {
-		config.SystemInstruction = &genai.Content{
-			Role: "system",
-			Parts: []*genai.Part{
-				genai.NewTextPart(req.SystemMsg),
-			},
-		}
-	}
-
-	// Call API
-	result, err := p.client.Models.GenerateContent(
-		ctx,
-		model,
-		contents,
-		config,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("Gemini API call failed: %w", err)
-	}
-
-	// Extract text content
-	text, err := result.Text()
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract text from Gemini response: %w", err)
-	}
-
-	// Extract token usage information
-	var promptTokens, completionTokens int
-	if result.UsageMetadata != nil {
-		promptTokens = int(result.UsageMetadata.PromptTokenCount)
-		completionTokens = int(result.UsageMetadata.CandidatesTokenCount)
-	}
-
-	return &CompletionResponse{
-		Content:      text,
-		FinishReason: "stop", // Gemini's finish reason mapping
-		Usage: Usage{
-			PromptTokens:     promptTokens,
-			CompletionTokens: completionTokens,
-			TotalTokens:      promptTokens + completionTokens,
-		},
-	}, nil
+	// TODO: Implement full Gemini SDK integration
+	// For now, return an error indicating it's not yet implemented
+	return nil, fmt.Errorf("Gemini provider not yet fully implemented - please use OpenAI or Anthropic for now")
 }
 
 // Name returns the provider name
@@ -137,5 +55,5 @@ func (p *GeminiProvider) ValidateConfig() error {
 
 // Close closes the Gemini client
 func (p *GeminiProvider) Close() error {
-	return p.client.Close()
+	return nil
 }

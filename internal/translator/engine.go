@@ -87,7 +87,12 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	result.Stats.FailedItems = result.Stats.TotalItems - result.Stats.SuccessItems
 
 	// Step 6: Rebuild JSON structure with translations
-	result.Target = e.rebuildJSON(input.Source, translations)
+	rebuilt := e.rebuildJSON(input.Source, translations)
+	if targetMap, ok := rebuilt.(map[string]interface{}); ok {
+		result.Target = targetMap
+	} else {
+		result.Target = input.Source // fallback to source if rebuild fails
+	}
 
 	// Calculate duration
 	result.Stats.Duration = time.Since(startTime)

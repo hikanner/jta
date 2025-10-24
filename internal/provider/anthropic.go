@@ -30,7 +30,7 @@ func NewAnthropicProvider(apiKey string, modelName string) (*AnthropicProvider, 
 	)
 
 	return &AnthropicProvider{
-		client:    client,
+		client:    &client,
 		apiKey:    apiKey,
 		modelName: modelName,
 	}, nil
@@ -46,19 +46,23 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req *CompletionRequest
 
 	// Build parameters
 	params := anthropic.MessageNewParams{
-		Model:       anthropic.F(anthropic.Model(model)),
-		MaxTokens:   anthropic.Int(int64(req.MaxTokens)),
-		Temperature: anthropic.Float(float64(req.Temperature)),
-		Messages: anthropic.F([]anthropic.MessageParam{
+		Model:     anthropic.Model(model),
+		MaxTokens: int64(req.MaxTokens),
+		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(req.Prompt)),
-		}),
+		},
+	}
+
+	// Add temperature if specified
+	if req.Temperature > 0 {
+		params.Temperature = anthropic.Float(float64(req.Temperature))
 	}
 
 	// Add system prompt if provided
 	if req.SystemMsg != "" {
-		params.System = anthropic.F([]anthropic.TextBlockParam{
-			anthropic.NewTextBlock(req.SystemMsg),
-		})
+		params.System = []anthropic.TextBlockParam{
+			{Text: req.SystemMsg},
+		}
 	}
 
 	// Call API
@@ -70,7 +74,7 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req *CompletionRequest
 	// Extract text content
 	var content string
 	for _, block := range message.Content {
-		if block.Type == anthropic.ContentBlockTypeText {
+		if block.Text != "" {
 			content += block.Text
 		}
 	}
