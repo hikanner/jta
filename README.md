@@ -7,16 +7,17 @@
 
 > AI-powered Agentic JSON Translation tool with intelligent quality optimization
 
-Jta is a production-ready command-line tool that uses AI to translate JSON internationalization files with **exceptional accuracy and consistency**. Inspired by Andrew Ng's Translation Agent, it features automatic terminology detection, format preservation, and a **lightweight reflection mechanism** for quality self-optimization.
+Jta is a production-ready command-line tool that uses AI to translate JSON internationalization files with **exceptional accuracy and consistency**. Following Andrew Ng's Translation Agent methodology, it features **true Agentic reflection** (translate → reflect → improve), automatic terminology detection, and robust format preservation for production-grade translations.
 
 ## ✨ Key Features
 
 ### 🤖 Agentic Translation with Self-Optimization
 
-- **Lightweight Reflection Engine**: Inspired by Andrew Ng's approach, optimized to 1.2-1.5x API calls (vs 3x for full reflection)
-- **Quality Auto-Check**: Automatically validates format integrity, terminology consistency, and completeness
-- **Selective Improvement**: Only fixes Critical/High severity issues for optimal cost-efficiency
-- **Batch Optimization**: Single API call handles multiple improvements
+- **True Agentic Reflection**: Following Andrew Ng's Translation Agent approach with two-step reflection mechanism
+- **LLM-Powered Quality Evaluation**: AI evaluates translations across 4 dimensions: accuracy, fluency, style, terminology
+- **Expert Suggestions**: LLM generates constructive criticism and improvement suggestions
+- **Iterative Improvement**: AI refines translations based on its own expert feedback
+- **Cost**: 3x API calls per batch (translate → reflect → improve) for maximum quality
 
 ### 📚 Intelligent Terminology Management
 
@@ -222,10 +223,67 @@ Jta follows a clean, modular architecture:
 3. **Filter**: Apply key filters if specified
 4. **Batch**: Split into batches for efficient processing
 5. **Translate**: Send to AI provider with format instructions
-6. **Reflect** ⭐: Quality check and selective improvement (Agentic!)
+6. **Reflect** ⭐: Two-step Agentic quality improvement (see below)
 7. **Process RTL**: Apply bidirectional text handling if needed
 8. **Merge**: Combine with unchanged translations
 9. **Save**: Write final output with pretty formatting
+
+### 🔄 Agentic Reflection Mechanism
+
+Jta implements Andrew Ng's Translation Agent approach with a **true two-step reflection process**:
+
+#### Step 1: Initial Translation (1x API)
+```
+Source: "Welcome to {app_name}"
+→ LLM Translation
+→ Result: "欢迎使用 {app_name}"
+```
+
+#### Step 2: Reflection - LLM Evaluates Quality (1x API)
+```
+Prompt to LLM:
+"Evaluate this translation across 4 dimensions:
+(i) accuracy - errors, mistranslations, omissions
+(ii) fluency - grammar, punctuation, repetitions
+(iii) style - cultural context, tone matching
+(iv) terminology - consistency, domain terms
+
+Provide constructive suggestions for improvement."
+
+→ LLM Response:
+"[welcome.message] Consider using '欢迎来到' instead of '欢迎使用' 
+for a warmer, more inviting tone that better matches 'Welcome to'"
+```
+
+#### Step 3: Improvement - LLM Applies Suggestions (1x API)
+```
+Prompt to LLM:
+"Original: Welcome to {app_name}
+Initial: 欢迎使用 {app_name}
+Suggestion: Use '欢迎来到' for warmer tone
+
+Edit the translation ensuring accuracy, fluency, style, terminology."
+
+→ LLM Response:
+"[welcome.message] 欢迎来到 {app_name}"
+```
+
+#### Why This Approach?
+
+**Advantages:**
+- ✅ **LLM Self-Evaluation**: AI discovers subtle quality issues humans/rules might miss
+- ✅ **Deep Analysis**: Evaluates accuracy, fluency, style, cultural context
+- ✅ **Explicit Reasoning**: Generates specific, actionable improvement suggestions
+- ✅ **Higher Quality**: Iterative refinement produces more natural, accurate translations
+
+**Cost:**
+- 3x API calls per batch (translate → reflect → improve)
+- For 100 keys with batch-size 20: 15 total API calls (5 translate + 5 reflect + 5 improve)
+- Trade-off: 3x cost for significantly higher translation quality
+
+**Configurable:**
+- Batch size: `--batch-size 10` (smaller = safer, larger = efficient)
+- Model selection: Stronger models (GPT-4, Claude 3.5 Sonnet) handle larger batches better
 
 ## 💡 Examples
 
@@ -251,8 +309,8 @@ $ jta en.json --to zh
    Total items     100
    Success         100
    Failed          0
-   Duration        30s
-   API calls       5 (includes 1 reflection call)
+   Duration        45s
+   API calls       15 (5 translate + 5 reflect + 5 improve)
 ```
 
 **Generated `.jta-terminology.json`:**
@@ -429,9 +487,14 @@ If translations are not meeting quality expectations:
    }
    ```
 
-3. **Enable reflection**: The reflection mechanism should auto-fix issues, but verify it's running:
+3. **Verify Agentic reflection is working**: The two-step reflection (evaluate → improve) runs automatically. In verbose mode, you should see:
    ```bash
    jta en.json --to zh --verbose
+   
+   # Look for reflection output showing:
+   # - Step 2: Reflection (LLM evaluating quality)
+   # - Step 3: Improvement (LLM applying suggestions)
+   # - API calls: 3x per batch (translate + reflect + improve)
    ```
 
 #### Format Elements Lost in Translation
@@ -496,10 +559,11 @@ jta en.json --to zh --verbose
 
 **Q: How much does it cost to translate a typical i18n file?**
 
-A: For a 100-key file using OpenAI GPT-4o:
-- First translation: ~$0.05-0.10 (depending on content length)
-- Incremental updates: ~$0.01-0.02 (only new/modified keys)
-- The reflection mechanism adds ~20-50% to cost but significantly improves quality
+A: For a 100-key file using OpenAI GPT-4o with Agentic reflection (3x API calls):
+- First translation: ~$0.15-0.30 (including reflection)
+- Incremental updates: ~$0.03-0.06 (only new/modified keys)
+- Without reflection (basic translate only): ~$0.05-0.10
+- Trade-off: 3x cost for significantly higher quality through AI self-evaluation and improvement
 
 **Q: Can I translate offline or use my own models?**
 
@@ -544,12 +608,13 @@ A: Jta supports any language that your chosen AI provider supports. Common langu
 
 **Q: How is this different from other translation tools?**
 
-A: Jta's Agentic approach with reflection mechanism sets it apart:
-1. **Self-optimizing**: Automatically checks and improves translation quality
-2. **Context-aware**: Understands domain terminology and preserves it
-3. **Format-safe**: Never breaks your placeholders or markup
-4. **Cost-efficient**: Incremental translation saves 80-90% on updates
-5. **Production-ready**: Built with Go for reliability and performance
+A: Jta's true Agentic approach following Andrew Ng's methodology sets it apart:
+1. **AI Self-Evaluation**: LLM evaluates its own translations across accuracy, fluency, style, terminology
+2. **Iterative Improvement**: Two-step reflection (evaluate → improve) produces higher quality
+3. **Context-aware**: Understands domain terminology and cultural nuances
+4. **Format-safe**: Never breaks your placeholders or markup
+5. **Incremental**: Saves 80-90% on updates by only translating changes
+6. **Production-ready**: Built with Go for reliability and performance
 
 ## 🤝 Contributing
 
