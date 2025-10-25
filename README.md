@@ -182,41 +182,160 @@ Jta supports 25+ languages including:
 
 ## 🏗️ Architecture
 
-Jta follows a clean, modular architecture:
+Jta follows a clean, modular architecture with clear separation of concerns:
 
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "🖥️ Presentation Layer"
+        CLI[CLI Interface<br/>Cobra + Viper]
+        UI[Terminal UI<br/>Lipgloss + Spinner]
+    end
+    
+    subgraph "🔧 Application Layer"
+        APP[App Controller<br/>Workflow Orchestration]
+    end
+    
+    subgraph "⚙️ Domain Layer"
+        subgraph "Translation Engine"
+            ENGINE[Translation Engine<br/>Core Orchestrator]
+            BATCH[Batch Processor<br/>Concurrent Processing]
+            REFLECT[Reflection Engine ⭐<br/>Agentic Quality Control]
+        end
+        
+        subgraph "Supporting Services"
+            TERM[Terminology Manager<br/>Auto-detection + Dictionary]
+            INCR[Incremental Translator<br/>Diff Analysis]
+            FILTER[Key Filter<br/>Pattern Matching]
+            FORMAT[Format Protector<br/>Placeholder Preservation]
+            RTL[RTL Processor<br/>Bidirectional Text]
+        end
+    end
+    
+    subgraph "🔌 Infrastructure Layer"
+        subgraph "AI Providers"
+            OPENAI[OpenAI Provider<br/>GPT-4o]
+            ANTHROPIC[Anthropic Provider<br/>Claude 3.5 Sonnet]
+            GOOGLE[Google Provider<br/>Gemini 2.0 Flash]
+        end
+        
+        subgraph "Storage"
+            JSON[JSON Repository<br/>File I/O]
+        end
+    end
+    
+    subgraph "📦 Domain Models"
+        MODELS[Domain Models<br/>Translation • Terminology • Language]
+    end
+    
+    CLI --> APP
+    UI --> APP
+    APP --> ENGINE
+    ENGINE --> BATCH
+    ENGINE --> REFLECT
+    ENGINE --> TERM
+    ENGINE --> INCR
+    ENGINE --> FILTER
+    ENGINE --> FORMAT
+    ENGINE --> RTL
+    
+    BATCH --> OPENAI
+    BATCH --> ANTHROPIC
+    BATCH --> GOOGLE
+    REFLECT --> OPENAI
+    REFLECT --> ANTHROPIC
+    REFLECT --> GOOGLE
+    TERM --> OPENAI
+    TERM --> ANTHROPIC
+    TERM --> GOOGLE
+    
+    TERM --> JSON
+    INCR --> JSON
+    
+    ENGINE -.-> MODELS
+    TERM -.-> MODELS
+    BATCH -.-> MODELS
+    
+    style REFLECT fill:#ff6b6b,stroke:#c92a2a,stroke-width:3px,color:#fff
+    style ENGINE fill:#4ecdc4,stroke:#087f5b,stroke-width:2px
+    style CLI fill:#96f2d7,stroke:#087f5b
+    style UI fill:#96f2d7,stroke:#087f5b
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLI Layer                             │
-│  (Command parsing, user interaction, progress display)      │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  Translation Engine                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   Batch      │  │  Key Filter  │  │   RTL        │     │
-│  │  Processor   │  │   Matcher    │  │  Processor   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Reflection  │  │  Incremental │  │   Format     │     │
-│  │   Engine     │  │  Translator  │  │  Protector   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│              Terminology Manager                             │
-│  (Automatic detection, dictionary management)               │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  AI Provider Layer                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │   OpenAI     │  │  Anthropic   │  │   Google     │     │
-│  │   Provider   │  │   Provider   │  │   Provider   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└─────────────────────────────────────────────────────────────┘
-```
+
+### Module Responsibilities
+
+| Module | Responsibility | Key Features |
+|--------|---------------|--------------|
+| **CLI** | Command-line interface | Argument parsing, help text, command execution |
+| **UI** | Terminal presentation | Colored output, spinners, progress bars, tables |
+| **App** | Application orchestration | Workflow coordination, error handling, result formatting |
+| **Translation Engine** | Core translation logic | Batch management, workflow control, result assembly |
+| **Batch Processor** | Concurrent processing | Parallel API calls, retry logic, rate limiting |
+| **Reflection Engine** ⭐ | Agentic quality control | LLM self-evaluation, improvement suggestions |
+| **Terminology Manager** | Term management | Auto-detection, dictionary building, term translation |
+| **Incremental Translator** | Delta processing | Diff analysis, selective translation, merge logic |
+| **Key Filter** | Selective translation | Pattern matching, inclusion/exclusion rules |
+| **Format Protector** | Format preservation | Placeholder detection, HTML/URL/Markdown protection |
+| **RTL Processor** | RTL language support | Bidirectional markers, punctuation conversion |
+| **AI Providers** | LLM integration | API abstraction, response parsing, error handling |
+| **JSON Repository** | Data persistence | File I/O, JSON marshaling, validation |
 
 ### Translation Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant App
+    participant Engine
+    participant Term as Terminology<br/>Manager
+    participant Batch as Batch<br/>Processor
+    participant Reflect as Reflection<br/>Engine ⭐
+    participant AI as AI Provider
+    
+    User->>CLI: jta translate source.json
+    CLI->>App: Execute command
+    
+    rect rgb(240, 248, 255)
+        Note over App,Engine: Phase 1: Preparation
+        App->>Engine: Load & analyze JSON
+        Engine->>Term: Detect/load terminology
+        Term->>AI: Detect terms via LLM
+        AI-->>Term: Return terms
+        Engine->>Engine: Apply key filters
+        Engine->>Engine: Create batches
+    end
+    
+    rect rgb(255, 250, 240)
+        Note over Batch,AI: Phase 2: Translation
+        Engine->>Batch: Process batches (concurrent)
+        loop For each batch
+            Batch->>AI: Translate with terminology
+            AI-->>Batch: Return translations
+        end
+    end
+    
+    rect rgb(255, 240, 245)
+        Note over Reflect,AI: Phase 3: Agentic Reflection ⭐
+        Engine->>Reflect: Review translations
+        Reflect->>AI: Step 1: Evaluate quality
+        AI-->>Reflect: Suggestions
+        Reflect->>AI: Step 2: Apply improvements
+        AI-->>Reflect: Improved translations
+    end
+    
+    rect rgb(240, 255, 240)
+        Note over Engine,App: Phase 4: Finalization
+        Engine->>Engine: Process RTL if needed
+        Engine->>Engine: Merge results
+        Engine->>App: Return result
+        App->>CLI: Format output
+        CLI->>User: Display statistics
+    end
+```
+
+**Key Steps:**
 
 1. **Load & Analyze**: Load source JSON, detect changes (incremental mode)
 2. **Terminology**: Auto-detect or load terminology dictionary
