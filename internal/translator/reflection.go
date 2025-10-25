@@ -69,7 +69,10 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	// Step 1: Reflection - LLM evaluates translations and provides suggestions
 	suggestions, err := r.reflectStep(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("reflection step failed: %w", err)
+		return nil, domain.NewTranslationError("reflection step failed", err).
+			WithContext("source_lang", input.SourceLang).
+			WithContext("target_lang", input.TargetLang).
+			WithContext("translation_count", len(input.TranslatedTexts))
 	}
 	result.Suggestions = suggestions
 	result.APICallsUsed++ // +1 API call for reflection
@@ -77,7 +80,10 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	// Step 2: Improvement - LLM improves translations based on suggestions
 	improved, err := r.improveStep(ctx, input, suggestions)
 	if err != nil {
-		return nil, fmt.Errorf("improvement step failed: %w", err)
+		return nil, domain.NewTranslationError("improvement step failed", err).
+			WithContext("source_lang", input.SourceLang).
+			WithContext("target_lang", input.TargetLang).
+			WithContext("suggestion_count", len(suggestions))
 	}
 	result.ImprovedTexts = improved
 	result.APICallsUsed++ // +1 API call for improvement
@@ -113,7 +119,9 @@ func (r *ReflectionEngine) reflectStep(ctx context.Context, input ReflectionInpu
 
 	resp, err := r.provider.Complete(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("reflection API call failed: %w", err)
+		return nil, domain.NewTranslationError("reflection API call failed", err).
+			WithContext("source_lang", input.SourceLang).
+			WithContext("target_lang", input.TargetLang)
 	}
 
 	// Parse suggestions from LLM response
@@ -143,7 +151,9 @@ func (r *ReflectionEngine) improveStep(
 
 	resp, err := r.provider.Complete(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("improvement API call failed: %w", err)
+		return nil, domain.NewTranslationError("improvement API call failed", err).
+			WithContext("source_lang", input.SourceLang).
+			WithContext("target_lang", input.TargetLang)
 	}
 
 	// Parse improved translations from LLM response

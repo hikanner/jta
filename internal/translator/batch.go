@@ -71,7 +71,9 @@ func (bp *BatchProcessor) ProcessBatches(
 			)
 
 			if err != nil {
-				return fmt.Errorf("batch %d failed: %w", batchIdx, err)
+				return domain.NewTranslationError(fmt.Sprintf("batch %d failed", batchIdx), err).
+					WithContext("batch_index", batchIdx).
+					WithContext("batch_size", len(batchItems))
 			}
 
 			// Update results
@@ -133,13 +135,16 @@ func (bp *BatchProcessor) processSingleBatch(
 	}
 
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed after %d retries: %w", maxRetries, err)
+		return nil, 0, domain.NewTranslationError(fmt.Sprintf("failed after %d retries", maxRetries), err).
+			WithContext("retries", maxRetries).
+			WithContext("item_count", len(items))
 	}
 
 	// Parse response
 	results, err := bp.parseBatchResponse(resp.Content, items)
 	if err != nil {
-		return nil, resp.Usage.TotalTokens, fmt.Errorf("failed to parse response: %w", err)
+		return nil, resp.Usage.TotalTokens, domain.NewFormatError("failed to parse response", err).
+			WithContext("item_count", len(items))
 	}
 
 	// Validate format preservation
@@ -241,7 +246,8 @@ func (bp *BatchProcessor) parseBatchResponse(content string, items []domain.Batc
 
 	// If parsing failed, try to extract any useful translations
 	if len(results) == 0 {
-		return nil, fmt.Errorf("failed to parse translations from response")
+		return nil, domain.NewFormatError("failed to parse translations from response", nil).
+			WithContext("item_count", len(items))
 	}
 
 	return results, nil

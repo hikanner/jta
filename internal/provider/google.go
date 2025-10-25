@@ -2,9 +2,9 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/hikanner/jta/internal/domain"
 	"google.golang.org/genai"
 )
 
@@ -18,7 +18,7 @@ type GeminiProvider struct {
 // NewGeminiProvider creates a new Gemini provider
 func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*GeminiProvider, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Gemini API key is required")
+		return nil, domain.NewValidationError("Gemini API key is required", nil)
 	}
 
 	if modelName == "" {
@@ -30,7 +30,8 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
 		APIKey: apiKey,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+		return nil, domain.NewProviderError("failed to create Gemini client", err).
+			WithContext("provider", "google")
 	}
 
 	return &GeminiProvider{
@@ -77,17 +78,21 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	// Generate content
 	resp, err := p.client.Models.GenerateContent(ctx, p.modelName, contents, config)
 	if err != nil {
-		return nil, fmt.Errorf("Gemini API error: %w", err)
+		return nil, domain.NewProviderError("Gemini API error", err).
+			WithContext("model", p.modelName).
+			WithContext("provider", "google")
 	}
 
 	// Extract response text
 	if len(resp.Candidates) == 0 {
-		return nil, fmt.Errorf("no response candidates from Gemini")
+		return nil, domain.NewProviderError("no response candidates from Gemini", nil).
+			WithContext("model", p.modelName)
 	}
 
 	candidate := resp.Candidates[0]
 	if candidate.Content == nil || len(candidate.Content.Parts) == 0 {
-		return nil, fmt.Errorf("empty response from Gemini")
+		return nil, domain.NewProviderError("empty response from Gemini", nil).
+			WithContext("model", p.modelName)
 	}
 
 	// Concatenate all text parts
@@ -101,7 +106,8 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 
 	responseText := textBuilder.String()
 	if responseText == "" {
-		return nil, fmt.Errorf("empty text in Gemini response")
+		return nil, domain.NewProviderError("empty text in Gemini response", nil).
+			WithContext("model", p.modelName)
 	}
 
 	// Extract finish reason
@@ -140,7 +146,7 @@ func (p *GeminiProvider) GetModelName() string {
 // ValidateConfig validates the provider configuration
 func (p *GeminiProvider) ValidateConfig() error {
 	if p.apiKey == "" {
-		return fmt.Errorf("Gemini API key is required")
+		return domain.NewValidationError("Gemini API key is required", nil)
 	}
 	return nil
 }

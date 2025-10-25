@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+
+	"github.com/hikanner/jta/internal/domain"
 )
 
 // ProviderType represents the type of AI provider
@@ -41,7 +43,8 @@ func NewProvider(ctx context.Context, config *ProviderConfig) (AIProvider, error
 		return NewGeminiProvider(ctx, config.APIKey, modelName)
 
 	default:
-		return nil, fmt.Errorf("unsupported provider type: %s", config.Type)
+		return nil, domain.NewValidationError(fmt.Sprintf("unsupported provider type: %s", config.Type), nil).
+			WithContext("provider_type", string(config.Type))
 	}
 }
 
@@ -81,13 +84,15 @@ func NewProviderFromEnv(ctx context.Context, providerType ProviderType, modelNam
 	case ProviderTypeOpenAI:
 		apiKey = os.Getenv("OPENAI_API_KEY")
 		if apiKey == "" {
-			return nil, fmt.Errorf("OPENAI_API_KEY environment variable not set")
+			return nil, domain.NewConfigError("OPENAI_API_KEY environment variable not set", nil).
+				WithContext("provider", "openai")
 		}
 
 	case ProviderTypeAnthropic:
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 		if apiKey == "" {
-			return nil, fmt.Errorf("ANTHROPIC_API_KEY environment variable not set")
+			return nil, domain.NewConfigError("ANTHROPIC_API_KEY environment variable not set", nil).
+				WithContext("provider", "anthropic")
 		}
 
 	case ProviderTypeGoogle:
@@ -97,11 +102,13 @@ func NewProviderFromEnv(ctx context.Context, providerType ProviderType, modelNam
 			apiKey = os.Getenv("GOOGLE_API_KEY")
 		}
 		if apiKey == "" {
-			return nil, fmt.Errorf("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set")
+			return nil, domain.NewConfigError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set", nil).
+				WithContext("provider", "google")
 		}
 
 	default:
-		return nil, fmt.Errorf("unsupported provider type: %s", providerType)
+		return nil, domain.NewValidationError(fmt.Sprintf("unsupported provider type: %s", providerType), nil).
+			WithContext("provider_type", string(providerType))
 	}
 
 	return NewProvider(ctx, &ProviderConfig{

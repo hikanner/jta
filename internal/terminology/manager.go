@@ -62,13 +62,18 @@ func (m *Manager) TranslateTerms(ctx context.Context, terms []string, sourceLang
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to translate terms: %w", err)
+		return nil, domain.NewTerminologyError("failed to translate terms", err).
+			WithContext("source_lang", sourceLang).
+			WithContext("target_lang", targetLang).
+			WithContext("term_count", len(terms))
 	}
 
 	// Parse response
 	translations, err := parseTermTranslations(resp.Content, terms)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse term translations: %w", err)
+		return nil, domain.NewFormatError("failed to parse term translations", err).
+			WithContext("source_lang", sourceLang).
+			WithContext("target_lang", targetLang)
 	}
 
 	return translations, nil

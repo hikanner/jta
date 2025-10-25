@@ -78,7 +78,9 @@ func (d *Detector) analyzeWithLLM(ctx context.Context, texts []string, lang stri
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("LLM analysis failed: %w", err)
+		return nil, domain.NewTerminologyError("LLM analysis failed", err).
+			WithContext("language", lang).
+			WithContext("text_count", len(texts))
 	}
 
 	// Parse result
@@ -178,7 +180,8 @@ func (d *Detector) parseTermsFromJSON(content string) ([]domain.Term, error) {
 
 	err := json.Unmarshal([]byte(jsonStr), &result)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+		return nil, domain.NewFormatError("failed to parse JSON", err).
+			WithContext("json_content", jsonStr)
 	}
 
 	var terms []domain.Term
@@ -263,7 +266,8 @@ func parseTermTranslations(content string, terms []string) (map[string]string, e
 	var translations map[string]string
 	err := json.Unmarshal([]byte(jsonStr), &translations)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse translations: %w", err)
+		return nil, domain.NewFormatError("failed to parse translations", err).
+			WithContext("json_content", jsonStr)
 	}
 
 	return translations, nil

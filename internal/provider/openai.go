@@ -2,8 +2,8 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/hikanner/jta/internal/domain"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 )
@@ -18,7 +18,7 @@ type OpenAIProvider struct {
 // NewOpenAIProvider creates a new OpenAI provider
 func NewOpenAIProvider(apiKey string, modelName string) (*OpenAIProvider, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("OpenAI API key is required")
+		return nil, domain.NewValidationError("OpenAI API key is required", nil)
 	}
 
 	if modelName == "" {
@@ -69,12 +69,15 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	chatCompletion, err := p.client.Chat.Completions.New(ctx, params)
 
 	if err != nil {
-		return nil, fmt.Errorf("OpenAI API call failed: %w", err)
+		return nil, domain.NewProviderError("OpenAI API call failed", err).
+			WithContext("model", model).
+			WithContext("provider", "openai")
 	}
 
 	// Parse response
 	if len(chatCompletion.Choices) == 0 {
-		return nil, fmt.Errorf("no response from OpenAI")
+		return nil, domain.NewProviderError("no response from OpenAI", nil).
+			WithContext("model", model)
 	}
 
 	return &CompletionResponse{
@@ -101,7 +104,7 @@ func (p *OpenAIProvider) GetModelName() string {
 // ValidateConfig validates the provider configuration
 func (p *OpenAIProvider) ValidateConfig() error {
 	if p.apiKey == "" {
-		return fmt.Errorf("OpenAI API key is required")
+		return domain.NewValidationError("OpenAI API key is required", nil)
 	}
 	return nil
 }

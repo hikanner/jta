@@ -2,7 +2,6 @@ package terminology
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/hikanner/jta/internal/domain"
@@ -27,13 +26,15 @@ func NewJSONRepository() *JSONRepository {
 func (r *JSONRepository) Load(path string) (*domain.Terminology, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read terminology file: %w", err)
+		return nil, domain.NewIOError("failed to read terminology file", err).
+			WithContext("path", path)
 	}
 
 	var terminology domain.Terminology
 	err = json.Unmarshal(data, &terminology)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse terminology JSON: %w", err)
+		return nil, domain.NewFormatError("failed to parse terminology JSON", err).
+			WithContext("path", path)
 	}
 
 	return &terminology, nil
@@ -44,13 +45,15 @@ func (r *JSONRepository) Save(path string, terminology *domain.Terminology) erro
 	// Marshal with indentation for readability
 	data, err := json.MarshalIndent(terminology, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal terminology: %w", err)
+		return domain.NewFormatError("failed to marshal terminology", err).
+			WithContext("path", path)
 	}
 
 	// Write to file
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write terminology file: %w", err)
+		return domain.NewIOError("failed to write terminology file", err).
+			WithContext("path", path)
 	}
 
 	return nil

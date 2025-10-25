@@ -2,10 +2,10 @@ package provider
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/hikanner/jta/internal/domain"
 )
 
 // AnthropicProvider implements AIProvider for Anthropic Claude
@@ -18,7 +18,7 @@ type AnthropicProvider struct {
 // NewAnthropicProvider creates a new Anthropic provider
 func NewAnthropicProvider(apiKey string, modelName string) (*AnthropicProvider, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Anthropic API key is required")
+		return nil, domain.NewValidationError("Anthropic API key is required", nil)
 	}
 
 	if modelName == "" {
@@ -68,7 +68,9 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req *CompletionRequest
 	// Call API
 	message, err := p.client.Messages.New(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("Anthropic API call failed: %w", err)
+		return nil, domain.NewProviderError("Anthropic API call failed", err).
+			WithContext("model", model).
+			WithContext("provider", "anthropic")
 	}
 
 	// Extract text content
@@ -103,7 +105,7 @@ func (p *AnthropicProvider) GetModelName() string {
 // ValidateConfig validates the provider configuration
 func (p *AnthropicProvider) ValidateConfig() error {
 	if p.apiKey == "" {
-		return fmt.Errorf("Anthropic API key is required")
+		return domain.NewValidationError("Anthropic API key is required", nil)
 	}
 	return nil
 }

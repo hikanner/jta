@@ -56,17 +56,19 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	if len(input.Options.Keys) > 0 || len(input.Options.ExcludeKeys) > 0 {
 		includePatterns, err := e.parseKeyPatterns(input.Options.Keys)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse include patterns: %w", err)
+			return nil, domain.NewValidationError("failed to parse include patterns", err).
+				WithContext("patterns", input.Options.Keys)
 		}
 
 		excludePatterns, err := e.parseKeyPatterns(input.Options.ExcludeKeys)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse exclude patterns: %w", err)
+			return nil, domain.NewValidationError("failed to parse exclude patterns", err).
+				WithContext("patterns", input.Options.ExcludeKeys)
 		}
 
 		filterResult, err := e.keyFilter.FilterKeys(input.Source, includePatterns, excludePatterns)
 		if err != nil {
-			return nil, fmt.Errorf("failed to filter keys: %w", err)
+			return nil, domain.NewValidationError("failed to filter keys", err)
 		}
 
 		// Rebuild filtered JSON structure
@@ -83,7 +85,7 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	// Step 2: Extract translatable items from source JSON
 	items, err := e.extractTranslatableItems(sourceData, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract translatable items: %w", err)
+		return nil, domain.NewFormatError("failed to extract translatable items", err)
 	}
 
 	result.Stats.TotalItems = len(items)
@@ -114,7 +116,10 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("batch processing failed: %w", err)
+		return nil, domain.NewTranslationError("batch processing failed", err).
+			WithContext("source_lang", input.SourceLang).
+			WithContext("target_lang", input.TargetLang).
+			WithContext("batch_count", len(batches))
 	}
 
 	// Update stats
