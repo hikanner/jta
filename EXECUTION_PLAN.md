@@ -182,25 +182,37 @@
 
 ## 📋 Phase 3: Agentic 核心能力 (100% 完成) ✅
 
-### 3.1 轻量级反思机制 ⭐⭐⭐ (核心 Agentic 能力) ✓
-- [x] Reflection 引擎实现
-- [x] 质量检查 (术语一致性、格式完整性、完整度)
-- [x] 选择性改进策略 (只改进 Critical/High 问题)
-- [x] 批量反思优化 (1次 API 调用处理多个问题)
+### 3.1 真正的 Agentic 反思机制 ⭐⭐⭐ (核心 Agentic 能力) ✓
+- [x] 完全重构为 Andrew Ng 的 Translation Agent 方法
+- [x] Step 1: 初始翻译 (1x API)
+- [x] Step 2: LLM 反思评估 (1x API) - 四维度分析
+  - 准确性 (accuracy): 错误、误译、遗漏
+  - 流畅性 (fluency): 语法、标点、重复
+  - 风格 (style): 文化语境、语气匹配
+  - 术语 (terminology): 一致性、领域术语
+- [x] Step 3: LLM 应用建议改进 (1x API)
+- [x] 术语表集成到反思 prompt
+- [x] 格式保护验证 (改进后)
 - [x] 集成到翻译引擎
-- [x] 智能决策 (小批次跳过，有术语时强制)
-- [x] 完整单元测试覆盖 (8 个测试用例)
+- [x] 文档更新 (README, FAQ, Troubleshooting)
 
-**完成时间**: 2025-10-24 16:00
-**实际耗时**: 2.5 小时
-**文件**: `internal/translator/reflection.go`, `internal/translator/reflection_test.go`
+**初次完成时间**: 2025-10-24 16:00 (轻量级版本)
+**重构完成时间**: 2025-10-25 23:30 (真正 Agentic 版本)
+**实际耗时**: 
+- 初版: 2.5 小时
+- 重构: 3 小时
+**文件**: `internal/translator/reflection.go`
 **集成**: `internal/translator/engine.go`
 **特性**: 
-- 快速质量检查 (无 API 调用)
-- 3 种问题检测 (格式、术语、完整度)
-- 4 个严重级别 (Critical, High, Medium, Low)
-- 批量改进 (单次 API 调用)
-- 优雅降级 (反思失败不影响翻译)
+- ✅ LLM 自我评估质量 (不是硬编码规则)
+- ✅ 生成具体、可操作的改进建议
+- ✅ 两步分离: 反思 → 改进
+- ✅ 批量处理 (每批次 3x API)
+- ✅ 格式验证 (改进后自动检查)
+- ✅ 优雅降级 (反思失败不影响翻译)
+- 💰 成本: 3x API 调用换取显著质量提升
+
+**参考**: https://github.com/andrewyng/translation-agent
 
 ### 3.2 Terminal UI 优化 ✓
 - [x] Lipgloss 样式系统
@@ -420,7 +432,8 @@
    - ✅ RTL 语言支持
 
 2. **Agentic 核心能力** (Phase 3) ⭐⭐⭐
-   - ✅ 轻量级反思机制（质量自优化）
+   - ✅ 真正的 Agentic 反思机制（LLM 自我评估和改进）
+   - ✅ Andrew Ng 的 Translation Agent 方法（3x API）
    - ✅ Terminal UI（Lipgloss 样式）
    - ✅ 智能批量优化
 
@@ -508,9 +521,13 @@ git push origin v1.0.0
 - ✅ 修复 JSON 重建逻辑，追踪键路径
 - ✅ 实现 RTL Processor（方向标记、标点转换）
 - ✅ 支持 4 种 RTL 语言（Arabic, Hebrew, Persian, Urdu）
-- ✅ **实现轻量级反思机制** ⭐ (核心 Agentic 能力)
+- ✅ **实现 Agentic 反思机制（初版）** ⭐ (核心 Agentic 能力)
 - ✅ 质量检查（格式、术语、完整度）
 - ✅ 选择性改进策略（批量优化）
+- ✅ **[2025-10-25] 重构为真正的 Agentic 反思** ⭐⭐⭐
+- ✅ 完全遵循 Andrew Ng 的 Translation Agent 方法
+- ✅ LLM 两步反思：评估 → 改进（3x API）
+- ✅ 四维度质量评估（accuracy/fluency/style/terminology）
 - ✅ 完成 Google Gemini Provider 集成
 - ✅ 实现 Terminal UI 样式系统（Lipgloss）
 - ✅ 集成彩色输出到 CLI
