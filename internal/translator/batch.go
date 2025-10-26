@@ -19,10 +19,32 @@ type BatchStats struct {
 	TotalTokens   int
 }
 
+// BatchProgressCallback is called for batch progress updates
+type BatchProgressCallback func(event BatchProgressEvent)
+
+// BatchProgressEvent represents a batch processing event
+type BatchProgressEvent struct {
+	Type         string // "start", "complete", "retry", "error"
+	BatchIndex   int
+	TotalBatches int
+	BatchSize    int
+	Attempt      int
+	MaxAttempts  int
+	Duration     time.Duration
+	Tokens       int
+	Error        error
+}
+
 // BatchProcessor handles batch translation with concurrency
 type BatchProcessor struct {
-	provider        provider.AIProvider
-	formatProtector *format.Protector
+	provider         provider.AIProvider
+	formatProtector  *format.Protector
+	progressCallback BatchProgressCallback
+}
+
+// SetProgressCallback sets the progress callback function
+func (bp *BatchProcessor) SetProgressCallback(callback BatchProgressCallback) {
+	bp.progressCallback = callback
 }
 
 // NewBatchProcessor creates a new batch processor
@@ -61,18 +83,88 @@ func (bp *BatchProcessor) ProcessBatches(
 		batchItems := batch
 
 		g.Go(func() error {
-			// Process single batch
-			batchResults, batchTokens, err := bp.processSingleBatch(
-				ctx,
-				batchItems,
-				sourceLang,
-				targetLang,
-				termDict,
-			)
+			// Notify batch start
+			if bp.progressCallback != nil {
+				bp.progressCallback(BatchProgressEvent{
+					Type:         "start",
+					BatchIndex:   batchIdx + 1,
+					TotalBatches: len(batches),
+					BatchSize:    len(batchItems),
+				})
+			}
+
+			// Process with retries
+			maxRetries := 3
+			var batchResults map[string]string
+			var batchTokens int
+			var err error
+
+			for attempt := 0; attempt < maxRetries; attempt++ {
+				startTime := time.Now()
+
+				batchResults, batchTokens, err = bp.processSingleBatchOnce(
+					ctx,
+					batchItems,
+					sourceLang,
+					targetLang,
+					termDict,
+				)
+
+				duration := time.Since(startTime)
+
+				if err == nil {
+					// Success
+					if bp.progressCallback != nil {
+						bp.progressCallback(BatchProgressEvent{
+							Type:         "complete",
+							BatchIndex:   batchIdx + 1,
+							TotalBatches: len(batches),
+							BatchSize:    len(batchItems),
+							Duration:     duration,
+							Tokens:       batchTokens,
+						})
+					}
+					break
+				}
+
+				// Failed
+				if attempt < maxRetries-1 {
+					// Will retry
+					if bp.progressCallback != nil {
+						bp.progressCallback(BatchProgressEvent{
+							Type:         "retry",
+							BatchIndex:   batchIdx + 1,
+							TotalBatches: len(batches),
+							BatchSize:    len(batchItems),
+							Attempt:      attempt + 1,
+							MaxAttempts:  maxRetries,
+							Error:        err,
+						})
+					}
+
+					// Exponential backoff
+					backoff := time.Duration(1<<uint(attempt)) * time.Second
+					time.Sleep(backoff)
+				} else {
+					// Final failure
+					if bp.progressCallback != nil {
+						bp.progressCallback(BatchProgressEvent{
+							Type:         "error",
+							BatchIndex:   batchIdx + 1,
+							TotalBatches: len(batches),
+							BatchSize:    len(batchItems),
+							Attempt:      attempt + 1,
+							MaxAttempts:  maxRetries,
+							Duration:     duration,
+							Error:        err,
+						})
+					}
+				}
+			}
 
 			if err != nil {
-				return domain.NewTranslationError(fmt.Sprintf("batch %d failed", batchIdx), err).
-					WithContext("batch_index", batchIdx).
+				return domain.NewTranslationError(fmt.Sprintf("batch %d failed", batchIdx+1), err).
+					WithContext("batch_index", batchIdx+1).
 					WithContext("batch_size", len(batchItems))
 			}
 
@@ -101,8 +193,8 @@ func (bp *BatchProcessor) ProcessBatches(
 	return results, stats, nil
 }
 
-// processSingleBatch processes a single batch of items
-func (bp *BatchProcessor) processSingleBatch(
+// processSingleBatchOnce processes a single batch of items (one attempt, no retries)
+func (bp *BatchProcessor) processSingleBatchOnce(
 	ctx context.Context,
 	items []domain.BatchItem,
 	sourceLang, targetLang string,
@@ -111,33 +203,15 @@ func (bp *BatchProcessor) processSingleBatch(
 	// Build batch translation prompt
 	prompt := bp.buildBatchPrompt(items, sourceLang, targetLang, termDict)
 
-	// Call AI provider with retries
-	var resp *provider.CompletionResponse
-	var err error
-	maxRetries := 3
-
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		resp, err = bp.provider.Complete(ctx, &provider.CompletionRequest{
-			Prompt:      prompt,
-			Temperature: 0.3,
-			MaxTokens:   4000,
-		})
-
-		if err == nil {
-			break
-		}
-
-		// Exponential backoff
-		if attempt < maxRetries-1 {
-			backoff := time.Duration(1<<uint(attempt)) * time.Second
-			time.Sleep(backoff)
-		}
-	}
+	// Call AI provider (single attempt)
+	resp, err := bp.provider.Complete(ctx, &provider.CompletionRequest{
+		Prompt:      prompt,
+		Temperature: 0.3,
+		MaxTokens:   4000,
+	})
 
 	if err != nil {
-		return nil, 0, domain.NewTranslationError(fmt.Sprintf("failed after %d retries", maxRetries), err).
-			WithContext("retries", maxRetries).
-			WithContext("item_count", len(items))
+		return nil, 0, err
 	}
 
 	// Parse response

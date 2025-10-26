@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/incremental"
@@ -234,6 +235,9 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	// Step 7: Translate
 	a.ui.PrintStep(ui.IconRobot, "Translating...")
 
+	// Setup progress callbacks for detailed output
+	a.setupProgressCallbacks()
+
 	result, err := a.engine.Translate(ctx, domain.TranslationInput{
 		Source:      source,
 		SourceLang:  "en",
@@ -255,6 +259,8 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 		return fmt.Errorf("translation failed: %w", err)
 	}
 
+	// Print completion summary
+	fmt.Println()
 	a.ui.PrintSuccess("Translation completed")
 
 	// Step 8: Save result
@@ -311,4 +317,61 @@ func extractTexts(data interface{}) []string {
 	}
 
 	return texts
+}
+
+// setupProgressCallbacks configures progress callbacks for detailed output
+func (a *App) setupProgressCallbacks() {
+	var batchCount int
+	var successCount int
+	var retryCount int
+	var mu sync.Mutex
+
+	// Setup batch processor callback
+	a.engine.GetBatchProcessor().SetProgressCallback(func(event translator.BatchProgressEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		switch event.Type {
+		case "start":
+			if batchCount == 0 {
+				// First batch - print preparation info
+				fmt.Printf("   📦 Split into %d batches (%d items/batch, concurrency: %d)\n",
+					event.TotalBatches, event.BatchSize, 3)
+				fmt.Println()
+			}
+			batchCount++
+			fmt.Printf("   🔄 Processing batch %d/%d (%d items)\n",
+				event.BatchIndex, event.TotalBatches, event.BatchSize)
+
+		case "complete":
+			successCount++
+			fmt.Printf("   ✅ Batch %d completed (%.1fs, %d tokens)\n",
+				event.BatchIndex, event.Duration.Seconds(), event.Tokens)
+
+		case "retry":
+			retryCount++
+			fmt.Printf("   ⚠️  Batch %d failed (attempt %d/%d): %v\n",
+				event.BatchIndex, event.Attempt, event.MaxAttempts, event.Error)
+			fmt.Printf("   ⏰  Retry in %ds...\n", 1<<uint(event.Attempt-1))
+
+		case "error":
+			fmt.Printf("   ❌ Batch %d failed after %d attempts: %v\n",
+				event.BatchIndex, event.MaxAttempts, event.Error)
+		}
+	})
+
+	// Setup reflection engine callback
+	a.engine.GetReflectionEngine().SetProgressCallback(func(event translator.ReflectionProgressEvent) {
+		switch event.Type {
+		case "start":
+			fmt.Println()
+			fmt.Printf("   ⭐ Agentic Reflection (processing %d translations)...\n", event.Count)
+
+		case "reflect_complete":
+			fmt.Printf("   🔍 Evaluation complete (%d suggestions)\n", event.Count)
+
+		case "improve_complete":
+			fmt.Printf("   ✨ Improvements applied (%d texts refined)\n", event.Count)
+		}
+	})
 }

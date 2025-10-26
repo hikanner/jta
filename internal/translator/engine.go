@@ -40,6 +40,16 @@ func NewEngine(
 	}
 }
 
+// GetBatchProcessor returns the batch processor for setting callbacks
+func (e *Engine) GetBatchProcessor() *BatchProcessor {
+	return e.batchProcessor
+}
+
+// GetReflectionEngine returns the reflection engine for setting callbacks
+func (e *Engine) GetReflectionEngine() *ReflectionEngine {
+	return e.reflectionEngine
+}
+
 // Translate performs the complete translation workflow
 func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (*domain.TranslationResult, error) {
 	startTime := time.Now()

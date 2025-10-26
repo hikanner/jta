@@ -10,16 +10,32 @@ import (
 	"github.com/hikanner/jta/internal/provider"
 )
 
+// ReflectionProgressCallback is called for reflection progress updates
+type ReflectionProgressCallback func(event ReflectionProgressEvent)
+
+// ReflectionProgressEvent represents a reflection event
+type ReflectionProgressEvent struct {
+	Type  string // "start", "reflect_complete", "improve_complete", "complete"
+	Step  string // "reflect", "improve"
+	Count int    // number of texts being processed
+}
+
 // ReflectionEngine implements Agentic reflection mechanism
 // Following Andrew Ng's Translation Agent approach with two-step process:
 // Step 1: Reflect - LLM evaluates translation quality and provides suggestions
 // Step 2: Improve - LLM improves translation based on suggestions
 // Target: 3x API calls (translate → reflect → improve)
 type ReflectionEngine struct {
-	provider        provider.AIProvider
-	formatProtector *format.Protector
-	maxTokens       int
-	temperature     float32
+	provider         provider.AIProvider
+	formatProtector  *format.Protector
+	maxTokens        int
+	temperature      float32
+	progressCallback ReflectionProgressCallback
+}
+
+// SetProgressCallback sets the progress callback function
+func (r *ReflectionEngine) SetProgressCallback(callback ReflectionProgressCallback) {
+	r.progressCallback = callback
 }
 
 // NewReflectionEngine creates a new reflection engine
@@ -66,6 +82,14 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 
 	result.ReflectionNeeded = true
 
+	// Notify reflection start
+	if r.progressCallback != nil {
+		r.progressCallback(ReflectionProgressEvent{
+			Type:  "start",
+			Count: len(input.TranslatedTexts),
+		})
+	}
+
 	// Step 1: Reflection - LLM evaluates translations and provides suggestions
 	suggestions, err := r.reflectStep(ctx, input)
 	if err != nil {
@@ -77,6 +101,15 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	result.Suggestions = suggestions
 	result.APICallsUsed++ // +1 API call for reflection
 
+	// Notify reflection complete
+	if r.progressCallback != nil {
+		r.progressCallback(ReflectionProgressEvent{
+			Type:  "reflect_complete",
+			Step:  "reflect",
+			Count: len(suggestions),
+		})
+	}
+
 	// Step 2: Improvement - LLM improves translations based on suggestions
 	improved, err := r.improveStep(ctx, input, suggestions)
 	if err != nil {
@@ -87,6 +120,15 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	}
 	result.ImprovedTexts = improved
 	result.APICallsUsed++ // +1 API call for improvement
+
+	// Notify improvement complete
+	if r.progressCallback != nil {
+		r.progressCallback(ReflectionProgressEvent{
+			Type:  "improve_complete",
+			Step:  "improve",
+			Count: len(improved),
+		})
+	}
 
 	// Step 3: Validate format preservation after improvement
 	for key, improvedText := range improved {
