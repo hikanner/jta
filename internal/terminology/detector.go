@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/provider"
@@ -209,16 +210,26 @@ func (d *Detector) parseTermsFromJSON(content string) ([]domain.Term, error) {
 	return terms, nil
 }
 
+// CandidateWord represents a candidate term from statistical analysis
+type CandidateWord struct {
+	Word      string
+	Frequency int
+	Contexts  []string // Max 5 contexts
+}
+
 // hybridDetection performs hybrid detection for large files
+// Step 1: Local statistical analysis (no LLM)
+// Step 2: LLM batch validation
 func (d *Detector) hybridDetection(ctx context.Context, texts []string, lang string) ([]domain.Term, error) {
-	// For now, use simplified approach - just analyze first N texts
-	// In production, this would use statistical pre-processing
-	maxTexts := 100
-	if len(texts) > maxTexts {
-		texts = texts[:maxTexts]
+	// Step 1: Extract candidate terms using local statistical analysis
+	candidates := d.extractCandidatesSimplified(texts)
+
+	if len(candidates) == 0 {
+		return []domain.Term{}, nil
 	}
 
-	return d.analyzeWithLLM(ctx, texts, lang)
+	// Step 2: Validate candidates with LLM
+	return d.validateWithLLM(ctx, candidates, lang)
 }
 
 // extractJSON extracts JSON from markdown code blocks or raw text
@@ -271,4 +282,294 @@ func parseTermTranslations(content string, terms []string) (map[string]string, e
 	}
 
 	return translations, nil
+}
+
+// extractCandidatesSimplified extracts candidate terms using local statistical analysis
+func (d *Detector) extractCandidatesSimplified(texts []string) map[string]*CandidateWord {
+	candidates := make(map[string]*CandidateWord)
+
+	for _, text := range texts {
+		// Simple tokenization
+		words := d.simpleTokenize(text)
+
+		// Extract 1-3 word phrases
+		for i := 0; i < len(words); i++ {
+			// Single word
+			d.addCandidate(candidates, words[i], text)
+
+			// Bigram
+			if i+1 < len(words) {
+				phrase := words[i] + " " + words[i+1]
+				d.addCandidate(candidates, phrase, text)
+			}
+
+			// Trigram
+			if i+2 < len(words) {
+				phrase := words[i] + " " + words[i+1] + " " + words[i+2]
+				d.addCandidate(candidates, phrase, text)
+			}
+		}
+	}
+
+	return d.filterCandidates(candidates)
+}
+
+// addCandidate adds a word to candidates with frequency tracking
+func (d *Detector) addCandidate(candidates map[string]*CandidateWord, word string, context string) {
+	// Skip too short or too long
+	if len(word) < 2 || len(word) > 50 {
+		return
+	}
+
+	// Skip stop words
+	if d.isStopWord(word) {
+		return
+	}
+
+	word = strings.TrimSpace(word)
+
+	if cand, exists := candidates[word]; exists {
+		cand.Frequency++
+		// Keep max 5 contexts
+		if len(cand.Contexts) < 5 {
+			cand.Contexts = append(cand.Contexts, context)
+		}
+	} else {
+		candidates[word] = &CandidateWord{
+			Word:      word,
+			Frequency: 1,
+			Contexts:  []string{context},
+		}
+	}
+}
+
+// filterCandidates filters candidates based on frequency and format
+func (d *Detector) filterCandidates(candidates map[string]*CandidateWord) map[string]*CandidateWord {
+	filtered := make(map[string]*CandidateWord)
+
+	for word, info := range candidates {
+		// Keep if: frequency >= 3 OR special format
+		if info.Frequency >= 3 || d.isSpecialFormat(word) {
+			filtered[word] = info
+		}
+	}
+
+	return filtered
+}
+
+// simpleTokenize performs simple tokenization without external libraries
+func (d *Detector) simpleTokenize(text string) []string {
+	// Replace punctuation with spaces (keep hyphens and dots)
+	text = strings.Map(func(r rune) rune {
+		if r == '-' || r == '.' || unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		if unicode.IsSpace(r) || unicode.IsPunct(r) {
+			return ' '
+		}
+		return r
+	}, text)
+
+	words := strings.Fields(text)
+
+	// Normalize case (preserve all-caps words like API)
+	result := []string{}
+	for _, word := range words {
+		if word == strings.ToUpper(word) && len(word) >= 2 {
+			result = append(result, word) // Keep all-caps
+		} else {
+			result = append(result, strings.ToLower(word))
+		}
+	}
+
+	return result
+}
+
+// isStopWord checks if a word is a common stop word
+func (d *Detector) isStopWord(word string) bool {
+	stopWords := map[string]bool{
+		"the": true, "a": true, "an": true, "and": true, "or": true,
+		"but": true, "in": true, "on": true, "at": true, "to": true,
+		"for": true, "of": true, "with": true, "by": true, "from": true,
+		"is": true, "are": true, "was": true, "were": true, "be": true,
+		"this": true, "that": true, "these": true, "those": true,
+		"your": true, "you": true, "it": true, "its": true,
+	}
+
+	return stopWords[strings.ToLower(word)]
+}
+
+// isSpecialFormat checks if a word has special formatting (all-caps, version numbers, etc)
+func (d *Detector) isSpecialFormat(word string) bool {
+	// All-caps (e.g., API, JSON)
+	if len(word) >= 2 && word == strings.ToUpper(word) && !strings.ContainsAny(word, " ") {
+		return true
+	}
+
+	// Contains version numbers (e.g., FLUX.1, GPT-4)
+	if strings.Contains(word, ".") || strings.ContainsAny(word, "0123456789") {
+		return true
+	}
+
+	// CamelCase (e.g., MyApp, OpenAI)
+	if len(word) > 1 && unicode.IsUpper(rune(word[0])) {
+		for i := 1; i < len(word); i++ {
+			if unicode.IsUpper(rune(word[i])) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// validateWithLLM validates candidates with LLM in batches
+func (d *Detector) validateWithLLM(ctx context.Context, candidates map[string]*CandidateWord, lang string) ([]domain.Term, error) {
+	batches := d.batchCandidates(candidates, 30)
+
+	allTerms := []domain.Term{}
+
+	for i, batch := range batches {
+		terms, err := d.validateBatchWithLLM(ctx, batch, lang)
+		if err != nil {
+			return nil, domain.NewTerminologyError(fmt.Sprintf("batch %d validation failed", i+1), err)
+		}
+
+		allTerms = append(allTerms, terms...)
+	}
+
+	return allTerms, nil
+}
+
+// validateBatchWithLLM validates a single batch of candidates
+func (d *Detector) validateBatchWithLLM(ctx context.Context, batch []*CandidateWord, lang string) ([]domain.Term, error) {
+	prompt := d.buildValidationPrompt(batch, lang)
+
+	resp, err := d.provider.Complete(ctx, &provider.CompletionRequest{
+		Prompt:      prompt,
+		Temperature: 0.3,
+		MaxTokens:   0, // Let SDK use defaults
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return d.parseValidationResult(resp.Content)
+}
+
+// buildValidationPrompt builds the LLM prompt for candidate validation
+func (d *Detector) buildValidationPrompt(candidates []*CandidateWord, lang string) string {
+	var builder strings.Builder
+
+	builder.WriteString(fmt.Sprintf(`You are a terminology validation expert for JSON i18n files.
+
+I have extracted candidate terms from a large %s JSON file using statistical analysis.
+Your task: Verify which candidates are TRUE TERMS that need special handling for translation.
+
+TRUE TERMS are:
+1. PRESERVE (never translate): brand names, technical terms, product names, proper nouns
+2. CONSISTENT (must translate uniformly): business domain terms, core concepts
+
+NOT TERMS (ignore these):
+- Common words that don't need special handling
+- Generic phrases
+- Complete sentences
+
+Below are the candidates with their frequency and example contexts:
+
+`, lang))
+
+	for i, cand := range candidates {
+		builder.WriteString(fmt.Sprintf("\n%d. Candidate: \"%s\"\n", i+1, cand.Word))
+		builder.WriteString(fmt.Sprintf("   Frequency: %d times in file\n", cand.Frequency))
+		builder.WriteString("   Example contexts:\n")
+		for j, ctx := range cand.Contexts {
+			if j >= 3 {
+				break
+			}
+			builder.WriteString(fmt.Sprintf("   - \"%s\"\n", ctx))
+		}
+	}
+
+	builder.WriteString(`
+
+Return JSON array with your decisions (ONLY include terms where is_term is true):
+[
+  {
+    "term": "API",
+    "is_term": true,
+    "type": "preserve",
+    "reason": "Technical acronym, appears in multiple technical contexts"
+  },
+  {
+    "term": "user profile",
+    "is_term": true,
+    "type": "consistent",
+    "reason": "Core UI feature name, appears frequently across different contexts"
+  }
+]`)
+
+	return builder.String()
+}
+
+// parseValidationResult parses LLM validation results
+func (d *Detector) parseValidationResult(content string) ([]domain.Term, error) {
+	jsonStr := extractJSON(content)
+
+	var results []struct {
+		Term   string `json:"term"`
+		IsTerm bool   `json:"is_term"`
+		Type   string `json:"type"`
+		Reason string `json:"reason"`
+	}
+
+	err := json.Unmarshal([]byte(jsonStr), &results)
+	if err != nil {
+		return nil, domain.NewFormatError("failed to parse validation result", err).
+			WithContext("json_content", jsonStr)
+	}
+
+	terms := []domain.Term{}
+	for _, r := range results {
+		if !r.IsTerm {
+			continue
+		}
+
+		var termType domain.TermType
+		if r.Type == "preserve" {
+			termType = domain.TermTypePreserve
+		} else {
+			termType = domain.TermTypeConsistent
+		}
+
+		terms = append(terms, domain.Term{
+			Term:   r.Term,
+			Type:   termType,
+			Reason: r.Reason,
+		})
+	}
+
+	return terms, nil
+}
+
+// batchCandidates splits candidates into batches
+func (d *Detector) batchCandidates(candidates map[string]*CandidateWord, batchSize int) [][]*CandidateWord {
+	batches := [][]*CandidateWord{}
+	currentBatch := []*CandidateWord{}
+
+	for _, cand := range candidates {
+		currentBatch = append(currentBatch, cand)
+
+		if len(currentBatch) >= batchSize {
+			batches = append(batches, currentBatch)
+			currentBatch = []*CandidateWord{}
+		}
+	}
+
+	if len(currentBatch) > 0 {
+		batches = append(batches, currentBatch)
+	}
+
+	return batches
 }
