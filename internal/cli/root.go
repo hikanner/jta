@@ -32,61 +32,80 @@ var (
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "jta <source> --to <languages>",
-		Short: "Jta - AI-powered JSON translation agent",
-		Long: `Jta is an intelligent JSON translation tool powered by AI.
+		Short: "Jta - Agentic JSON Translation Agent",
+		Long: `Jta - AI-powered Agentic JSON Translation tool with intelligent quality optimization
 
-It provides:
-  • Automatic terminology detection and management
-  • Format preservation (placeholders, HTML, etc.)
-  • Incremental translation (only translate changes)
-  • Key filtering for selective translation
-  • RTL language support
-  • Multiple AI provider support (OpenAI, Anthropic, Google)`,
-		Example: `  # Basic usage
+A production-ready command-line tool that uses AI to translate JSON i18n files with
+exceptional accuracy and consistency. Following Andrew Ng's Translation Agent methodology,
+it features true Agentic reflection (translate → reflect → improve).
+
+Key Features:
+  ⭐ Agentic Translation - LLM self-evaluates and improves translations (3x API: translate, reflect, improve)
+  📚 Smart Terminology - Auto-detection and consistent term management
+  🔒 Format Protection - Preserves placeholders, HTML, URLs, and markdown
+  ⚡ Incremental Mode - Only translates new/changed content
+  🎯 Key Filtering - Selective translation with glob patterns
+  🌍 RTL Support - Arabic, Hebrew, Persian, Urdu with bidirectional markers
+  🚀 Multi-Provider - OpenAI (GPT-4o), Anthropic (Claude 3.5), Google (Gemini 2.0)
+  �� Concurrent Processing - Fast batch translation with configurable concurrency`,
+		Example: `  # Basic usage (Agentic reflection enabled by default)
   jta en.json --to zh
 
-  # Multiple languages
+  # Multiple languages with shared terminology
   jta en.json --to zh,ja,ko
 
-  # Specify provider and model
+  # Use Claude for higher quality (recommended for production)
   jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20250116
 
-  # Skip terminology detection
+  # With custom terminology file
+  jta en.json --to zh --terminology ./config/tech-terms.json
+
+  # Incremental translation (only new/changed content)
+  jta en.json --to zh --output zh.json  # Run again after source changes
+
+  # Selective translation with key filtering
+  jta en.json --to zh --keys "settings.*,user.*" --exclude-keys "internal.*"
+
+  # Fast mode: skip terminology detection
   jta en.json --to zh --skip-terms
 
-  # Translate specific keys only
-  jta en.json --to zh --keys "settings.*,user.*"
-
-  # Force complete re-translation
+  # Force complete re-translation (ignore existing)
   jta en.json --to zh --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: runTranslate,
 	}
 
 	// Add flags
-	cmd.Flags().StringVar(&targetLangs, "to", "", "Target language(s), comma-separated (required)")
+	cmd.Flags().StringVar(&targetLangs, "to", "", "Target language(s), comma-separated (e.g., zh,ja,ko) [REQUIRED]")
 	cmd.MarkFlagRequired("to")
 
-	cmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider (openai, anthropic, google)")
-	cmd.Flags().StringVar(&modelFlag, "model", "", "Model name (uses default if not specified)")
-	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use environment variable)")
+	// AI Provider settings
+	cmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or google")
+	cmd.Flags().StringVar(&modelFlag, "model", "", "Model name (default: gpt-4o, claude-3-5-sonnet-20250116, gemini-2.0-flash-exp)")
+	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use OPENAI_API_KEY/ANTHROPIC_API_KEY/GEMINI_API_KEY env)")
 
-	cmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output file or directory")
-	cmd.Flags().StringVar(&terminologyFlag, "terminology", ".jta-terminology.json", "Terminology file path")
+	// Output settings
+	cmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output file path (default: <target-lang>.json in source directory)")
+	cmd.Flags().StringVar(&terminologyFlag, "terminology", ".jta-terminology.json", "Terminology file path (auto-created if missing)")
 
-	cmd.Flags().BoolVar(&skipTerms, "skip-terms", false, "Skip term detection (still translates missing terms)")
-	cmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management completely")
+	// Terminology management
+	cmd.Flags().BoolVar(&skipTerms, "skip-terms", false, "Skip auto-detection (use existing terminology file only)")
+	cmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management (faster but less consistent)")
 
-	cmd.Flags().StringVar(&keysFlag, "keys", "", "Only translate specified keys (glob patterns)")
-	cmd.Flags().StringVar(&excludeKeysFlag, "exclude-keys", "", "Exclude specified keys (glob patterns)")
+	// Key filtering
+	cmd.Flags().StringVar(&keysFlag, "keys", "", "Include only these keys (glob patterns, e.g., 'settings.*,user.*')")
+	cmd.Flags().StringVar(&excludeKeysFlag, "exclude-keys", "", "Exclude these keys (glob patterns, e.g., 'internal.*,debug.*')")
 
-	cmd.Flags().BoolVar(&forceFlag, "force", false, "Force complete re-translation (ignore existing)")
+	// Translation behavior
+	cmd.Flags().BoolVar(&forceFlag, "force", false, "Force complete re-translation (ignore incremental mode)")
 
-	cmd.Flags().IntVar(&batchSizeFlag, "batch-size", 20, "Batch size for translation")
-	cmd.Flags().IntVar(&concurrencyFlag, "concurrency", 3, "Concurrency for batch processing")
+	// Performance tuning
+	cmd.Flags().IntVar(&batchSizeFlag, "batch-size", 20, "Items per API call (10-50 recommended, larger = fewer calls but slower)")
+	cmd.Flags().IntVar(&concurrencyFlag, "concurrency", 3, "Parallel API requests (1-5 recommended, higher = faster but may hit rate limits)")
 
-	cmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Non-interactive mode (auto-confirm)")
-	cmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "Verbose output")
+	// UI behavior
+	cmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Non-interactive mode (skip confirmations, useful for CI/CD)")
+	cmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "Verbose output (show Agentic reflection steps and API details)")
 
 	return cmd
 }
