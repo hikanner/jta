@@ -46,7 +46,7 @@ Key Features:
   ⚡ Incremental Mode - Only translates new/changed content
   🎯 Key Filtering - Selective translation with glob patterns
   🌍 RTL Support - Arabic, Hebrew, Persian, Urdu with bidirectional markers
-  🚀 Multi-Provider - OpenAI (GPT-4o), Anthropic (Claude 3.5), Google (Gemini 2.0)
+  🚀 Multi-Provider - OpenAI (GPT-4o), Anthropic (Claude 3.5), Gemini (Gemini 2.0)
   �� Concurrent Processing - Fast batch translation with configurable concurrency`,
 		Example: `  # Basic usage (Agentic reflection enabled by default)
   jta en.json --to zh
@@ -80,7 +80,7 @@ Key Features:
 	cmd.MarkFlagRequired("to")
 
 	// AI Provider settings
-	cmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or google")
+	cmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or gemini")
 	cmd.Flags().StringVar(&modelFlag, "model", "", "Model name (default: gpt-4o, claude-3-5-sonnet-20250116, gemini-2.0-flash-exp)")
 	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use OPENAI_API_KEY/ANTHROPIC_API_KEY/GEMINI_API_KEY env)")
 

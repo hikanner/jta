@@ -31,7 +31,7 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
 	})
 	if err != nil {
 		return nil, domain.NewProviderError("failed to create Gemini client", err).
-			WithContext("provider", "google")
+			WithContext("provider", "gemini")
 	}
 
 	return &GeminiProvider{
@@ -80,7 +80,7 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	if err != nil {
 		return nil, domain.NewProviderError("Gemini API error", err).
 			WithContext("model", p.modelName).
-			WithContext("provider", "google")
+			WithContext("provider", "gemini")
 	}
 
 	// Extract response text
@@ -135,7 +135,7 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 
 // Name returns the provider name
 func (p *GeminiProvider) Name() string {
-	return "google"
+	return "gemini"
 }
 
 // GetModelName returns the current model name

@@ -30,7 +30,7 @@ export OPENAI_API_KEY="sk-..."
 # 或 Anthropic
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 或 Google Gemini
+# 或 Gemini
 export GEMINI_API_KEY="..."
 # 或
 export GOOGLE_API_KEY="..."
@@ -526,7 +526,7 @@ mv test-*.json test-results/
 测试完成后，确认以下功能正常：
 
 - [ ] ✅ 基础翻译 (单语言)
-- [ ] ✅ 多 Provider 支持 (OpenAI/Anthropic/Google)
+- [ ] ✅ 多 Provider 支持 (OpenAI/Anthropic/Gemini)
 - [ ] ✅ 术语管理 (preserve + consistent terms)
 - [ ] ✅ 增量翻译 (只翻译新增内容)
 - [ ] ✅ Key 过滤 (选择性翻译)

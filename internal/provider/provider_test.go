@@ -156,8 +156,8 @@ func TestProviderFactory(t *testing.T) {
 			wantNil:      false,
 		},
 		{
-			name:         "google provider",
-			providerType: ProviderTypeGoogle,
+			name:         "gemini provider",
+			providerType: ProviderTypeGemini,
 			model:        "gemini-pro",
 			apiKey:       "test-key",
 			wantErr:      false,

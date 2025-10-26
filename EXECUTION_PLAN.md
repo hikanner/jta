@@ -17,7 +17,7 @@
 - [x] 初始化 Go module
 - [x] 创建项目目录结构
 - [x] 安装核心依赖 (Cobra, Viper, Sonic, Zerolog)
-- [x] 安装 AI SDK (OpenAI, Anthropic, Google)
+- [x] 安装 AI SDK (OpenAI, Anthropic, Gemini)
 - [x] 创建 .gitignore 和基础配置
 
 **完成时间**: 2025-10-24 10:30
@@ -27,7 +27,7 @@
 - [x] 定义 AIProvider 接口
 - [x] 实现 OpenAI Provider (官方 SDK)
 - [x] 实现 Anthropic Provider (官方 SDK)
-- [x] 实现 Google Provider (接口预留)
+- [x] 实现 Gemini Provider (接口预留)
 - [x] 实现 Provider Factory
 - [x] 环境变量支持
 
@@ -140,8 +140,8 @@
 **集成**: `internal/translator/engine.go`
 **特性**: Unicode 方向标记 (LRM/RLM), URL/email 保护, 标点符号映射
 
-### 2.3 Google Gemini Provider 完善 ✓
-- [x] 研究 Google GenAI SDK 正确用法
+### 2.3 Gemini Provider 完善 ✓
+- [x] 研究 Gemini GenAI SDK 正确用法
 - [x] 实现 Complete 方法
 - [x] 处理响应格式 (Content, Parts)
 - [x] Token 统计 (UsageMetadata)
@@ -564,7 +564,7 @@ git push origin v1.0.0
 - ✅ 完全遵循 Andrew Ng 的 Translation Agent 方法
 - ✅ LLM 两步反思：评估 → 改进（3x API）
 - ✅ 四维度质量评估（accuracy/fluency/style/terminology）
-- ✅ 完成 Google Gemini Provider 集成
+- ✅ 完成 Gemini Provider 集成
 - ✅ 实现 Terminal UI 样式系统（Lipgloss）
 - ✅ 集成彩色输出到 CLI
 - ✅ 添加核心模块单元测试（format, utils, incremental）
@@ -591,8 +591,8 @@ git push origin v1.0.0
    - 正确追踪键路径并映射翻译结果
    - **状态**: 已完成
 
-2. **Google Provider 已完成** ✅
-   - 完整集成 Google GenAI SDK
+2. **Gemini Provider 已完成** ✅
+   - 完整集成 Gemini GenAI SDK
    - 支持所有核心功能
    - **状态**: 已完成
 

@@ -14,7 +14,7 @@ type ProviderType string
 const (
 	ProviderTypeOpenAI    ProviderType = "openai"
 	ProviderTypeAnthropic ProviderType = "anthropic"
-	ProviderTypeGoogle    ProviderType = "google"
+	ProviderTypeGemini    ProviderType = "gemini"
 )
 
 // ProviderConfig holds the configuration for creating a provider
@@ -39,7 +39,7 @@ func NewProvider(ctx context.Context, config *ProviderConfig) (AIProvider, error
 	case ProviderTypeAnthropic:
 		return NewAnthropicProvider(config.APIKey, modelName)
 
-	case ProviderTypeGoogle:
+	case ProviderTypeGemini:
 		return NewGeminiProvider(ctx, config.APIKey, modelName)
 
 	default:
@@ -55,7 +55,7 @@ func GetDefaultModel(providerType ProviderType) string {
 		return "gpt-4o"
 	case ProviderTypeAnthropic:
 		return "claude-3-5-sonnet-20250116"
-	case ProviderTypeGoogle:
+	case ProviderTypeGemini:
 		return "gemini-2.0-flash-exp"
 	default:
 		return ""
@@ -69,7 +69,7 @@ func GetContextWindowSize(providerType ProviderType) int {
 		return 128000 // GPT-4o: 128K tokens
 	case ProviderTypeAnthropic:
 		return 200000 // Claude 3.5 Sonnet: 200K tokens
-	case ProviderTypeGoogle:
+	case ProviderTypeGemini:
 		return 1000000 // Gemini 2.0 Flash: 1M tokens
 	default:
 		return 100000 // conservative estimate
@@ -95,15 +95,15 @@ func NewProviderFromEnv(ctx context.Context, providerType ProviderType, modelNam
 				WithContext("provider", "anthropic")
 		}
 
-	case ProviderTypeGoogle:
+	case ProviderTypeGemini:
 		apiKey = os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
-			// Fallback to GOOGLE_API_KEY
+			// Fallback to GOOGLE_API_KEY for backward compatibility
 			apiKey = os.Getenv("GOOGLE_API_KEY")
 		}
 		if apiKey == "" {
 			return nil, domain.NewConfigError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set", nil).
-				WithContext("provider", "google")
+				WithContext("provider", "gemini")
 		}
 
 	default:

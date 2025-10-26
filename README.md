@@ -64,7 +64,7 @@ Automatically preserves:
 
 - **OpenAI**: All models including GPT-4o, GPT-4 Turbo, GPT-3.5, etc.
 - **Anthropic**: All Claude models including Claude 3.5 Sonnet, Claude 3 Opus/Haiku, etc.
-- **Google**: All Gemini models including Gemini 2.0 Flash, Gemini 1.5 Pro, etc.
+- **Gemini**: All Gemini models including Gemini 2.0 Flash, Gemini 1.5 Pro, etc.
 
 ## 📦 Installation
 
@@ -167,7 +167,7 @@ Jta automatically protects:
 |----------|--------|---------------------|
 | OpenAI | All OpenAI models (GPT-4o, GPT-4 Turbo, GPT-3.5, etc.) | `OPENAI_API_KEY` |
 | Anthropic | All Claude models (Claude 3.5 Sonnet, Claude 3 Opus, etc.) | `ANTHROPIC_API_KEY` |
-| Google | All Gemini models (Gemini 2.0 Flash, Gemini 1.5 Pro, etc.) | `GEMINI_API_KEY` |
+| Gemini | All Gemini models (Gemini 2.0 Flash, Gemini 1.5 Pro, etc.) | `GEMINI_API_KEY` |
 
 You can specify any model supported by these providers using the `--model` flag.
 
@@ -217,7 +217,7 @@ graph TB
         subgraph "AI Providers"
             OPENAI[OpenAI Provider<br/>GPT-4o]
             ANTHROPIC[Anthropic Provider<br/>Claude 3.5 Sonnet]
-            GOOGLE[Google Provider<br/>Gemini 2.0 Flash]
+            GEMINI[Gemini Provider<br/>Gemini 2.0 Flash]
         end
         
         subgraph "Storage"
@@ -242,13 +242,13 @@ graph TB
     
     BATCH --> OPENAI
     BATCH --> ANTHROPIC
-    BATCH --> GOOGLE
+    BATCH --> GEMINI
     REFLECT --> OPENAI
     REFLECT --> ANTHROPIC
-    REFLECT --> GOOGLE
+    REFLECT --> GEMINI
     TERM --> OPENAI
     TERM --> ANTHROPIC
-    TERM --> GOOGLE
+    TERM --> GEMINI
     
     TERM --> JSON
     INCR --> JSON
@@ -547,7 +547,7 @@ export GEMINI_API_KEY=...
 ```
 Flags:
   --to string              Target language(s), comma-separated (required)
-  --provider string        AI provider (openai, anthropic, google) (default "openai")
+  --provider string        AI provider (openai, anthropic, gemini) (default "openai")
   --model string           Model name (uses default if not specified)
   --api-key string         API key (or use environment variable)
   -o, --output string      Output file or directory
@@ -592,8 +592,8 @@ If translations are not meeting quality expectations:
    # Anthropic
    jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20241022
    
-   # Google
-   jta en.json --to zh --provider google --model gemini-2.0-flash-exp
+   # Gemini
+   jta en.json --to zh --provider gemini --model gemini-2.0-flash-exp
    ```
 
 2. **Check terminology**: Review and refine `.jta-terminology.json`
