@@ -58,7 +58,7 @@ func (m *Manager) TranslateTerms(ctx context.Context, terms []string, sourceLang
 	resp, err := m.provider.Complete(ctx, &provider.CompletionRequest{
 		Prompt:      prompt,
 		Temperature: 0.3,
-		MaxTokens:   2000,
+		MaxTokens:   0, // Let SDK use model-specific defaults
 	})
 
 	if err != nil {

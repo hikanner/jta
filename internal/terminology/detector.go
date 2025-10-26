@@ -74,7 +74,7 @@ func (d *Detector) analyzeWithLLM(ctx context.Context, texts []string, lang stri
 	resp, err := d.provider.Complete(ctx, &provider.CompletionRequest{
 		Prompt:      prompt,
 		Temperature: 0.3,
-		MaxTokens:   2000,
+		MaxTokens:   0, // Let SDK use model-specific defaults
 	})
 
 	if err != nil {

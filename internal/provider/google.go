@@ -52,6 +52,8 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 		config.Temperature = &temp
 	}
 
+	// Set MaxOutputTokens only if explicitly specified
+	// SDK will use appropriate defaults for each model
 	if req.MaxTokens > 0 {
 		config.MaxOutputTokens = int32(req.MaxTokens)
 	}
