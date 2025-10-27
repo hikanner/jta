@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
+	"github.com/hikanner/jta/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -28,11 +30,12 @@ var (
 	concurrencyFlag    int
 	yesFlag            bool
 	verboseFlag        bool
+	listLanguagesFlag  bool
 )
 
 // NewRootCmd creates the root command
 func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "jta <source> --to <languages>",
 		Short: "Jta - Agentic JSON Translation Agent",
 		Long: `Jta - AI-powered Agentic JSON Translation tool with intelligent quality optimization
@@ -48,7 +51,7 @@ Key Features:
   ⚡ Incremental Mode - Only translates new/changed content
   🎯 Key Filtering - Selective translation with glob patterns
   🌍 RTL Support - Arabic, Hebrew, Persian, Urdu with bidirectional markers
-  🚀 Multi-Provider - OpenAI (GPT-4o), Anthropic (Claude 3.5), Gemini (Gemini 2.0)
+  🚀 Multi-Provider - OpenAI (GPT-5), Anthropic (Claude 4.5), Gemini (Gemini 2.5)
   �� Concurrent Processing - Fast batch translation with configurable concurrency`,
 		Example: `  # Basic usage (Agentic reflection enabled by default)
   jta en.json --to zh
@@ -57,7 +60,7 @@ Key Features:
   jta en.json --to zh,ja,ko
 
   # Use Claude for higher quality (recommended for production)
-  jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20250116
+  jta en.json --to zh --provider anthropic --model claude-sonnet-4-5
 
   # With custom terminology directory
   jta en.json --to zh --terminology-dir ./config/.jta
@@ -70,50 +73,66 @@ Key Features:
 
   # Fast mode: skip terminology detection
   jta en.json --to zh --skip-terminology`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: runTranslate,
 	}
 
 	// Add flags
-	cmd.Flags().StringVar(&targetLangs, "to", "", "Target language(s), comma-separated (e.g., zh,ja,ko) [REQUIRED]")
-	cmd.MarkFlagRequired("to")
+	rootCmd.Flags().StringVar(&targetLangs, "to", "", "Target language(s), comma-separated (e.g., zh,ja,ko) [REQUIRED]")
+	rootCmd.Flags().BoolVar(&listLanguagesFlag, "list-languages", false, "List all supported languages and exit")
 
 	// AI Provider settings
-	cmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or gemini")
-	cmd.Flags().StringVar(&modelFlag, "model", "", "Model name (default: gpt-4o, claude-3-5-sonnet-20250116, gemini-2.0-flash-exp)")
-	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use OPENAI_API_KEY/ANTHROPIC_API_KEY/GEMINI_API_KEY env)")
+	rootCmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or gemini")
+	rootCmd.Flags().StringVar(&modelFlag, "model", "", "Model name (default: gpt-5, claude-sonnet-4-5, gemini-2.5-flash)")
+	rootCmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use OPENAI_API_KEY/ANTHROPIC_API_KEY/GEMINI_API_KEY env)")
 
 	// Source settings
-	cmd.Flags().StringVar(&sourceLangFlag, "source-lang", "", "Source language (auto-detected from filename if not specified)")
+	rootCmd.Flags().StringVar(&sourceLangFlag, "source-lang", "", "Source language (auto-detected from filename if not specified)")
 
 	// Output settings
-	cmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output file path (default: <target-lang>.json in source directory)")
+	rootCmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output file path (default: <target-lang>.json in source directory)")
 
 	// Terminology management
-	cmd.Flags().StringVar(&terminologyDirFlag, "terminology-dir", ".jta", "Terminology directory (default: .jta/)")
-	cmd.Flags().BoolVar(&skipTerminology, "skip-terminology", false, "Skip term detection (use existing terminology)")
-	cmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management completely")
-	cmd.Flags().BoolVar(&redetectTerms, "redetect-terms", false, "Re-detect terminology (use when source language changes)")
+	rootCmd.Flags().StringVar(&terminologyDirFlag, "terminology-dir", ".jta", "Terminology directory (default: .jta/)")
+	rootCmd.Flags().BoolVar(&skipTerminology, "skip-terminology", false, "Skip term detection (use existing terminology)")
+	rootCmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management completely")
+	rootCmd.Flags().BoolVar(&redetectTerms, "redetect-terms", false, "Re-detect terminology (use when source language changes)")
 
 	// Translation behavior
-	cmd.Flags().BoolVar(&incrementalFlag, "incremental", false, "Incremental translation (only translate new/modified content)")
+	rootCmd.Flags().BoolVar(&incrementalFlag, "incremental", false, "Incremental translation (only translate new/modified content)")
 
 	// Key filtering
-	cmd.Flags().StringVar(&keysFlag, "keys", "", "Include only these keys (glob patterns, e.g., 'settings.*,user.*')")
-	cmd.Flags().StringVar(&excludeKeysFlag, "exclude-keys", "", "Exclude these keys (glob patterns, e.g., 'internal.*,debug.*')")
+	rootCmd.Flags().StringVar(&keysFlag, "keys", "", "Include only these keys (glob patterns, e.g., 'settings.*,user.*')")
+	rootCmd.Flags().StringVar(&excludeKeysFlag, "exclude-keys", "", "Exclude these keys (glob patterns, e.g., 'internal.*,debug.*')")
 
 	// Performance tuning
-	cmd.Flags().IntVar(&batchSizeFlag, "batch-size", 20, "Items per API call (10-50 recommended, larger = fewer calls but slower)")
-	cmd.Flags().IntVar(&concurrencyFlag, "concurrency", 3, "Parallel API requests (1-5 recommended, higher = faster but may hit rate limits)")
+	rootCmd.Flags().IntVar(&batchSizeFlag, "batch-size", 20, "Items per API call (10-50 recommended, larger = fewer calls but slower)")
+	rootCmd.Flags().IntVar(&concurrencyFlag, "concurrency", 3, "Parallel API requests (1-5 recommended, higher = faster but may hit rate limits)")
 
 	// UI behavior
-	cmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Non-interactive mode (skip confirmations, useful for CI/CD)")
-	cmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "Verbose output (show Agentic reflection steps and API details)")
+	rootCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Non-interactive mode (skip confirmations, useful for CI/CD)")
+	rootCmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "Verbose output (show Agentic reflection steps and API details)")
 
-	return cmd
+	return rootCmd
 }
 
 func runTranslate(cmd *cobra.Command, args []string) error {
+	// Handle --list-languages flag
+	if listLanguagesFlag {
+		listLanguages()
+		return nil
+	}
+
+	// Require source file when not listing languages
+	if len(args) == 0 {
+		return fmt.Errorf("source file is required")
+	}
+
+	// Require --to flag when translating
+	if targetLangs == "" {
+		return fmt.Errorf("--to flag is required")
+	}
+
 	ctx := context.Background()
 
 	sourcePath := args[0]
@@ -175,4 +194,44 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 // Execute runs the root command
 func Execute() error {
 	return NewRootCmd().Execute()
+}
+
+func listLanguages() {
+	fmt.Println("🌍 Supported Languages")
+	fmt.Println()
+
+	// Separate LTR and RTL languages
+	var ltrLangs []string
+	var rtlLangs []string
+
+	for code, lang := range domain.SupportedLanguages {
+		entry := fmt.Sprintf("  %s  %-6s  %s (%s)", lang.Flag, code, lang.NativeName, lang.Name)
+		if lang.IsRTL {
+			rtlLangs = append(rtlLangs, entry)
+		} else {
+			ltrLangs = append(ltrLangs, entry)
+		}
+	}
+
+	// Sort for consistent output
+	sort.Strings(ltrLangs)
+	sort.Strings(rtlLangs)
+
+	// Print LTR languages
+	fmt.Println("Left-to-Right (LTR):")
+	for _, entry := range ltrLangs {
+		fmt.Println(entry)
+	}
+
+	// Print RTL languages
+	if len(rtlLangs) > 0 {
+		fmt.Println()
+		fmt.Println("Right-to-Left (RTL):")
+		for _, entry := range rtlLangs {
+			fmt.Println(entry)
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("Total: %d languages\n", len(domain.SupportedLanguages))
 }

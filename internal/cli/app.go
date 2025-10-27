@@ -438,7 +438,7 @@ func (a *App) setupProgressCallbacks() {
 			if batchCount == 0 {
 				// First batch - print preparation info
 				fmt.Printf("   📦 Split into %d batches (%d items/batch, concurrency: %d)\n",
-					event.TotalBatches, event.BatchSize, 3)
+					event.TotalBatches, event.BatchSize, event.Concurrency)
 				fmt.Println()
 			}
 			batchCount++

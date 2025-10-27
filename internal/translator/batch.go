@@ -28,6 +28,7 @@ type BatchProgressEvent struct {
 	BatchIndex   int
 	TotalBatches int
 	BatchSize    int
+	Concurrency  int
 	Attempt      int
 	MaxAttempts  int
 	Duration     time.Duration
@@ -102,6 +103,7 @@ func (bp *BatchProcessor) ProcessBatches(
 					BatchIndex:   batchIdx + 1,
 					TotalBatches: len(batches),
 					BatchSize:    len(batchItems),
+					Concurrency:  concurrency,
 				})
 			}
 
@@ -132,6 +134,7 @@ func (bp *BatchProcessor) ProcessBatches(
 							BatchIndex:   batchIdx + 1,
 							TotalBatches: len(batches),
 							BatchSize:    len(batchItems),
+							Concurrency:  concurrency,
 							Duration:     duration,
 							Tokens:       batchTokens,
 						})
@@ -148,6 +151,7 @@ func (bp *BatchProcessor) ProcessBatches(
 							BatchIndex:   batchIdx + 1,
 							TotalBatches: len(batches),
 							BatchSize:    len(batchItems),
+							Concurrency:  concurrency,
 							Attempt:      attempt + 1,
 							MaxAttempts:  maxRetries,
 							Error:        err,
@@ -165,6 +169,7 @@ func (bp *BatchProcessor) ProcessBatches(
 							BatchIndex:   batchIdx + 1,
 							TotalBatches: len(batches),
 							BatchSize:    len(batchItems),
+							Concurrency:  concurrency,
 							Attempt:      attempt + 1,
 							MaxAttempts:  maxRetries,
 							Duration:     duration,
@@ -184,9 +189,6 @@ func (bp *BatchProcessor) ProcessBatches(
 
 			// Apply reflection to this batch if reflection engine is available
 			if bp.reflectionEngine != nil && bp.reflectionEngine.ShouldReflect(batchResults, terminology) {
-				fmt.Printf("[Batch %d] 🔍 Reflecting...\n", batchIdx+1)
-				reflectStartTime := time.Now()
-
 				// Build reflection input for this batch
 				reflectionInput := ReflectionInput{
 					SourceTexts:            make(map[string]string),
@@ -202,18 +204,34 @@ func (bp *BatchProcessor) ProcessBatches(
 					reflectionInput.SourceTexts[item.Key] = item.Text
 				}
 
-				// Perform reflection
-				reflectionResult, reflectErr := bp.reflectionEngine.Reflect(ctx, reflectionInput)
-				reflectElapsed := time.Since(reflectStartTime)
+				// Create progress callback for this batch (captures batchIdx for this specific batch)
+				progressCallback := func(event ReflectionProgressEvent) {
+					switch event.Type {
+					case "reflecting_start":
+						fmt.Printf("[Batch %d] 🔍 Reflecting...\n", batchIdx+1)
+					case "reflected_complete":
+						if event.Count > 0 {
+							fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) Found %d suggestions\n",
+								batchIdx+1, event.Duration.Seconds(), event.Count)
+						} else {
+							fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) All OK\n",
+								batchIdx+1, event.Duration.Seconds())
+						}
+					case "improving_start":
+						fmt.Printf("[Batch %d] ✨ Improving...\n", batchIdx+1)
+					case "improved_complete":
+						fmt.Printf("[Batch %d] ✓ Improved        (%.1fs) Updated %d translations\n",
+							batchIdx+1, event.Duration.Seconds(), event.Count)
+					}
+				}
+
+				// Perform reflection with the callback
+				reflectionResult, reflectErr := bp.reflectionEngine.Reflect(ctx, reflectionInput, progressCallback)
 
 				if reflectErr != nil {
 					// Log error but don't fail the batch
-					fmt.Printf("[Batch %d] ✗ Reflection failed (%.1fs): %v\n", batchIdx+1, reflectElapsed.Seconds(), reflectErr)
+					fmt.Printf("[Batch %d] ✗ Reflection failed: %v\n", batchIdx+1, reflectErr)
 				} else if reflectionResult.ReflectionNeeded && len(reflectionResult.ImprovedTexts) > 0 {
-					improvedCount := len(reflectionResult.ImprovedTexts)
-					fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) %d to improve\n", batchIdx+1, reflectElapsed.Seconds(), improvedCount)
-					fmt.Printf("[Batch %d] ✨ Improving...\n", batchIdx+1)
-
 					// Apply improvements
 					for key, improved := range reflectionResult.ImprovedTexts {
 						batchResults[key] = improved
@@ -223,8 +241,6 @@ func (bp *BatchProcessor) ProcessBatches(
 					statsMu.Lock()
 					stats.APICallsCount += reflectionResult.APICallsUsed
 					statsMu.Unlock()
-				} else {
-					fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) All OK\n", batchIdx+1, reflectElapsed.Seconds())
 				}
 			}
 

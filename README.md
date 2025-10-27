@@ -62,9 +62,9 @@ Automatically preserves:
 
 ### 🎨 Multi-Provider Support
 
-- **OpenAI**: All models including GPT-4o, GPT-4 Turbo, GPT-3.5, etc.
-- **Anthropic**: All Claude models including Claude 3.5 Sonnet, Claude 3 Opus/Haiku, etc.
-- **Gemini**: All Gemini models including Gemini 2.0 Flash, Gemini 1.5 Pro, etc.
+- **OpenAI**: All models including GPT-5, GPT-5 mini, GPT-5 nano, GPT-4o, etc.
+- **Anthropic**: All Claude models including Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.1, etc.
+- **Gemini**: All Gemini models including Gemini 2.5 Flash, Gemini 2.5 Pro, etc.
 
 ## 📦 Installation
 
@@ -83,6 +83,13 @@ go build -o jta cmd/jta/main.go
 ```
 
 ## 🚀 Quick Start
+
+### View Supported Languages
+
+```bash
+# List all supported languages
+jta --list-languages
+```
 
 ### Basic Usage
 
@@ -244,20 +251,86 @@ Jta automatically protects:
 
 | Provider | Models | Environment Variable |
 |----------|--------|---------------------|
-| OpenAI | All OpenAI models (GPT-4o, GPT-4 Turbo, GPT-3.5, etc.) | `OPENAI_API_KEY` |
-| Anthropic | All Claude models (Claude 3.5 Sonnet, Claude 3 Opus, etc.) | `ANTHROPIC_API_KEY` |
-| Gemini | All Gemini models (Gemini 2.0 Flash, Gemini 1.5 Pro, etc.) | `GEMINI_API_KEY` |
+| OpenAI | All OpenAI models (GPT-5, GPT-5 mini, GPT-5 nano, GPT-4o, etc.) | `OPENAI_API_KEY` |
+| Anthropic | All Claude models (Claude Sonnet 4.5, Claude Haiku 4.5, Claude Opus 4.1, etc.) | `ANTHROPIC_API_KEY` |
+| Gemini | All Gemini models (Gemini 2.5 Flash, Gemini 2.5 Pro, etc.) | `GEMINI_API_KEY` |
 
 You can specify any model supported by these providers using the `--model` flag.
 
 ## 🌍 Supported Languages
 
-Jta supports 25+ languages including:
+Jta supports **27 languages** with full metadata including flags, scripts, and number systems:
 
-- English, Chinese (Simplified/Traditional), Japanese, Korean
-- Spanish, French, German, Italian, Portuguese
-- Arabic, Hebrew (with RTL support)
-- And many more...
+### List All Supported Languages
+
+```bash
+# View all supported languages
+jta --list-languages
+```
+
+**Output:**
+```
+🌍 Supported Languages
+
+Left-to-Right (LTR):
+  🇬🇧  en      English (English)
+  🇨🇳  zh      中文(简体) (Chinese (Simplified))
+  🇹🇼  zh-TW   中文(繁体) (Chinese (Traditional))
+  🇯🇵  ja      日本語 (Japanese)
+  🇰🇷  ko      한국어 (Korean)
+  🇪🇸  es      Español (Spanish)
+  🇫🇷  fr      Français (French)
+  🇩🇪  de      Deutsch (German)
+  🇮🇹  it      Italiano (Italian)
+  🇵🇹  pt      Português (Portuguese)
+  🇷🇺  ru      Русский (Russian)
+  🇮🇳  hi      हिन्दी (Hindi)
+  🇧🇩  bn      বাংলা (Bengali)
+  🇹🇭  th      ไทย (Thai)
+  🇻🇳  vi      Tiếng Việt (Vietnamese)
+  🇮🇩  id      Bahasa Indonesia (Indonesian)
+  🇲🇾  ms      Bahasa Melayu (Malay)
+  🇳🇱  nl      Nederlands (Dutch)
+  🇵🇱  pl      Polski (Polish)
+  🇹🇷  tr      Türkçe (Turkish)
+  🇱🇰  si      සිංහල (Sinhala)
+  🇳🇵  ne      नेपाली (Nepali)
+  🇲🇲  my      မြန်မာ (Burmese)
+
+Right-to-Left (RTL):
+  🇸🇦  ar      العربية (Arabic)
+  🇮🇷  fa      فارسی (Persian)
+  🇮🇱  he      עברית (Hebrew)
+  🇵🇰  ur      اردو (Urdu)
+
+Total: 27 languages
+```
+
+### RTL Language Support
+
+Special support for Right-to-Left languages (Arabic, Persian, Hebrew, Urdu):
+- Automatic bidirectional text markers
+- Smart punctuation conversion for Arabic-script languages
+- Proper handling of embedded LTR content (URLs, numbers, code)
+
+### Language Examples
+
+```bash
+# Translate to Chinese (Simplified)
+jta en.json --to zh
+
+# Translate to Chinese (Traditional)
+jta en.json --to zh-TW
+
+# Translate to multiple Asian languages
+jta en.json --to zh,ja,ko,th,vi
+
+# Translate to RTL languages
+jta en.json --to ar,fa,he
+
+# Translate to European languages
+jta en.json --to es,fr,de,it,pt,nl
+```
 
 ## 🏗️ Architecture
 
@@ -294,9 +367,9 @@ graph TB
     
     subgraph "🔌 Infrastructure Layer"
         subgraph "AI Providers"
-            OPENAI[OpenAI Provider<br/>GPT-4o]
-            ANTHROPIC[Anthropic Provider<br/>Claude 3.5 Sonnet]
-            GEMINI[Gemini Provider<br/>Gemini 2.0 Flash]
+            OPENAI[OpenAI Provider<br/>GPT-5]
+            ANTHROPIC[Anthropic Provider<br/>Claude Sonnet 4.5]
+            GEMINI[Gemini Provider<br/>Gemini 2.5 Flash]
         end
         
         subgraph "Storage"
@@ -481,7 +554,7 @@ Edit the translation ensuring accuracy, fluency, style, terminology."
 
 **Configurable:**
 - Batch size: `--batch-size 10` (smaller = safer, larger = efficient)
-- Model selection: Stronger models (GPT-4, Claude 3.5 Sonnet) handle larger batches better
+- Model selection: Stronger models (GPT-5, Claude Sonnet 4.5) handle larger batches better
 
 ## 💡 Examples
 
@@ -625,7 +698,8 @@ export GEMINI_API_KEY=...
 
 ```
 Flags:
-  --to string                  Target language(s), comma-separated (required)
+  --to string                  Target language(s), comma-separated (required for translation)
+  --list-languages             List all supported languages and exit
   --provider string            AI provider (openai, anthropic, gemini) (default "openai")
   --model string               Model name (uses default if not specified)
   --api-key string             API key (or use environment variable)
@@ -668,13 +742,13 @@ If translations are not meeting quality expectations:
 1. **Use a better model**: Generally, newer/larger models provide better quality
    ```bash
    # OpenAI
-   jta en.json --to zh --provider openai --model gpt-4o
+   jta en.json --to zh --provider openai --model gpt-5
    
    # Anthropic
-   jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20241022
+   jta en.json --to zh --provider anthropic --model claude-sonnet-4-5
    
    # Gemini
-   jta en.json --to zh --provider gemini --model gemini-2.0-flash-exp
+   jta en.json --to zh --provider gemini --model gemini-2.5-flash
    ```
 
 2. **Check terminology**: Review and refine terminology files in `.jta/`
@@ -809,11 +883,17 @@ A: Currently, translations are saved automatically. For manual review:
 
 **Q: What languages are supported?**
 
-A: Jta supports any language that your chosen AI provider supports. Common languages include:
-- European: EN, ES, FR, DE, IT, PT, NL, PL, RU
-- Asian: ZH, JA, KO, TH, VI, ID
-- Middle Eastern: AR, HE, FA (with RTL support)
-- And many more...
+A: Jta currently supports **27 languages** with full metadata:
+- **European**: English, Spanish, French, German, Italian, Portuguese, Russian, Dutch, Polish, Turkish
+- **Asian**: Chinese (Simplified/Traditional), Japanese, Korean, Thai, Vietnamese, Indonesian, Malay, Hindi, Bengali, Sinhala, Nepali, Burmese
+- **Middle Eastern (RTL)**: Arabic, Persian, Hebrew, Urdu
+
+To see the complete list with flags and native names:
+```bash
+jta --list-languages
+```
+
+Jta also supports any other language that your chosen AI provider supports - just use the standard language code (e.g., `sv` for Swedish, `da` for Danish).
 
 **Q: How is this different from other translation tools?**
 
