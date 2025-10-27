@@ -1,5 +1,7 @@
 # Jta - JSON Translation Agent
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Test Coverage](https://img.shields.io/badge/coverage-34.2%25-yellow)](coverage.out)
