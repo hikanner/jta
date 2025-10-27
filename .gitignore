@@ -14,7 +14,6 @@
 # Build artifacts
 dist/
 jta
-cmd/jta/jta
 
 # IDE
 .idea/
