@@ -3,6 +3,7 @@ package terminology
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/provider"
@@ -10,18 +11,20 @@ import (
 
 // Manager handles terminology detection and management
 type Manager struct {
-	provider   provider.AIProvider
-	detector   *Detector
-	repository Repository
+	provider              provider.AIProvider
+	detector              *Detector
+	termRepository        *TermRepository
+	translationRepository *TranslationRepository
 }
 
 // NewManager creates a new terminology manager
-func NewManager(provider provider.AIProvider, repository Repository) *Manager {
+func NewManager(provider provider.AIProvider) *Manager {
 	detector := NewDetector(provider)
 	return &Manager{
-		provider:   provider,
-		detector:   detector,
-		repository: repository,
+		provider:              provider,
+		detector:              detector,
+		termRepository:        NewTermRepository(),
+		translationRepository: NewTranslationRepository(),
 	}
 }
 
@@ -30,19 +33,34 @@ func (m *Manager) DetectTerms(ctx context.Context, texts []string, sourceLang st
 	return m.detector.DetectTerms(ctx, texts, sourceLang)
 }
 
-// LoadTerminology loads terminology from a file
-func (m *Manager) LoadTerminology(path string) (*domain.Terminology, error) {
-	return m.repository.Load(path)
+// LoadTerminology loads terminology from directory
+func (m *Manager) LoadTerminology(terminologyDir string) (*domain.Terminology, error) {
+	return m.termRepository.Load(terminologyDir)
 }
 
-// SaveTerminology saves terminology to a file
-func (m *Manager) SaveTerminology(path string, terminology *domain.Terminology) error {
-	return m.repository.Save(path, terminology)
+// SaveTerminology saves terminology to directory
+func (m *Manager) SaveTerminology(terminologyDir string, terminology *domain.Terminology) error {
+	return m.termRepository.Save(terminologyDir, terminology)
 }
 
 // TerminologyExists checks if terminology file exists
-func (m *Manager) TerminologyExists(path string) bool {
-	return m.repository.Exists(path)
+func (m *Manager) TerminologyExists(terminologyDir string) bool {
+	return m.termRepository.Exists(terminologyDir)
+}
+
+// LoadTerminologyTranslation loads terminology translation from directory
+func (m *Manager) LoadTerminologyTranslation(terminologyDir string, targetLang string) (*domain.TerminologyTranslation, error) {
+	return m.translationRepository.Load(terminologyDir, targetLang)
+}
+
+// SaveTerminologyTranslation saves terminology translation to directory
+func (m *Manager) SaveTerminologyTranslation(terminologyDir string, translation *domain.TerminologyTranslation) error {
+	return m.translationRepository.Save(terminologyDir, translation)
+}
+
+// TranslationExists checks if translation file exists
+func (m *Manager) TranslationExists(terminologyDir string, targetLang string) bool {
+	return m.translationRepository.Exists(terminologyDir, targetLang)
 }
 
 // TranslateTerms translates terms to target language
@@ -54,11 +72,15 @@ func (m *Manager) TranslateTerms(ctx context.Context, terms []string, sourceLang
 	// Build prompt for term translation
 	prompt := m.buildTermTranslationPrompt(terms, sourceLang, targetLang)
 
+	fmt.Printf("   📝 Calling LLM to translate %d terms...\n", len(terms))
+
+	// Create independent 5-minute timeout for this LLM call
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	// Call LLM
-	resp, err := m.provider.Complete(ctx, &provider.CompletionRequest{
-		Prompt:      prompt,
-		Temperature: 0.3,
-		MaxTokens:   0, // Let SDK use model-specific defaults
+	resp, err := m.provider.Complete(callCtx, &provider.CompletionRequest{
+		Prompt: prompt,
 	})
 
 	if err != nil {
@@ -80,7 +102,7 @@ func (m *Manager) TranslateTerms(ctx context.Context, terms []string, sourceLang
 }
 
 // BuildPromptDictionary builds a terminology dictionary for use in translation prompts
-func (m *Manager) BuildPromptDictionary(terminology *domain.Terminology, targetLang string) string {
+func (m *Manager) BuildPromptDictionary(terminology *domain.Terminology, translation *domain.TerminologyTranslation) string {
 	if terminology == nil {
 		return ""
 	}
@@ -97,14 +119,11 @@ func (m *Manager) BuildPromptDictionary(terminology *domain.Terminology, targetL
 	}
 
 	// Consistent terms
-	sourceTerms := terminology.ConsistentTerms[terminology.SourceLanguage]
-	targetTerms := terminology.ConsistentTerms[targetLang]
-
-	if len(sourceTerms) > 0 && len(targetTerms) > 0 {
+	if translation != nil && len(terminology.ConsistentTerms) > 0 && len(translation.Translations) > 0 {
 		lines = append(lines, "📝 REQUIRED TRANSLATIONS:")
-		for i, sourceTerm := range sourceTerms {
-			if i < len(targetTerms) {
-				lines = append(lines, fmt.Sprintf("   \"%s\" → \"%s\"", sourceTerm, targetTerms[i]))
+		for _, sourceTerm := range terminology.ConsistentTerms {
+			if targetTerm, ok := translation.Translations[sourceTerm]; ok {
+				lines = append(lines, fmt.Sprintf("   \"%s\" → \"%s\"", sourceTerm, targetTerm))
 			}
 		}
 		lines = append(lines, "")

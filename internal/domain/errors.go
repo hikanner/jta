@@ -34,10 +34,28 @@ type Error struct {
 
 // Error implements the error interface
 func (e *Error) Error() string {
+	var msg string
 	if e.Err != nil {
-		return fmt.Sprintf("%s error: %s: %v", e.Type, e.Message, e.Err)
+		msg = fmt.Sprintf("%s error: %s: %v", e.Type, e.Message, e.Err)
+	} else {
+		msg = fmt.Sprintf("%s error: %s", e.Type, e.Message)
 	}
-	return fmt.Sprintf("%s error: %s", e.Type, e.Message)
+
+	// Append context if available
+	if len(e.Context) > 0 {
+		msg += " ["
+		first := true
+		for k, v := range e.Context {
+			if !first {
+				msg += ", "
+			}
+			msg += fmt.Sprintf("%s=%v", k, v)
+			first = false
+		}
+		msg += "]"
+	}
+
+	return msg
 }
 
 // Unwrap returns the wrapped error

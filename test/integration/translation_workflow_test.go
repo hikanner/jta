@@ -28,8 +28,7 @@ func TestCompleteTranslationWorkflow(t *testing.T) {
 [10] Confirmar contraseña`)
 
 	// Create terminology manager with mock provider
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(mockProvider, termRepo)
+	termManager := terminology.NewManager(mockProvider)
 
 	// Create translation engine
 	engine := translator.NewEngine(mockProvider, termManager)
@@ -113,19 +112,27 @@ func TestTranslationWithTerminology(t *testing.T) {
 [4] El token de OAuth es requerido`)
 
 	// Create terminology manager
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(mockProvider, termRepo)
+
+	termManager := terminology.NewManager(mockProvider)
 
 	// Create translation engine
 	engine := translator.NewEngine(mockProvider, termManager)
 
 	// Prepare terminology
 	termData := &domain.Terminology{
+		SourceLanguage:  "en",
+		PreserveTerms:   []string{"GitHub", "API", "Git", "OAuth"},
+		ConsistentTerms: []string{"repository", "issue", "token"},
+	}
+
+	// Prepare terminology translation
+	termTranslation := &domain.TerminologyTranslation{
 		SourceLanguage: "en",
-		PreserveTerms:  []string{"GitHub", "API", "Git", "OAuth"},
-		ConsistentTerms: map[string][]string{
-			"en": {"repository", "issue", "token"},
-			"es": {"repositorio", "issue", "token"},
+		TargetLanguage: "es",
+		Translations: map[string]string{
+			"repository": "repositorio",
+			"issue":      "issue",
+			"token":      "token",
 		},
 	}
 
@@ -139,10 +146,11 @@ func TestTranslationWithTerminology(t *testing.T) {
 
 	// Prepare translation input with terminology
 	input := domain.TranslationInput{
-		Source:      source,
-		SourceLang:  "en",
-		TargetLang:  "es",
-		Terminology: termData,
+		Source:                 source,
+		SourceLang:             "en",
+		TargetLang:             "es",
+		Terminology:            termData,
+		TerminologyTranslation: termTranslation,
 		Options: domain.TranslationOptions{
 			BatchSize:   10,
 			Concurrency: 1,
@@ -185,8 +193,8 @@ func TestTranslationWithKeyFiltering(t *testing.T) {
 [2] Configuración de usuario`)
 
 	// Create terminology manager
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(mockProvider, termRepo)
+
+	termManager := terminology.NewManager(mockProvider)
 
 	// Create translation engine
 	engine := translator.NewEngine(mockProvider, termManager)
@@ -252,8 +260,8 @@ func TestTranslationErrorHandling(t *testing.T) {
 	mockProvider.SetError("simulated API error")
 
 	// Create terminology manager
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(mockProvider, termRepo)
+
+	termManager := terminology.NewManager(mockProvider)
 
 	// Create translation engine
 	engine := translator.NewEngine(mockProvider, termManager)
@@ -308,8 +316,8 @@ func TestConcurrentTranslation(t *testing.T) {
 [3] Mensaje seis`)
 
 	// Create terminology manager
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(mockProvider, termRepo)
+
+	termManager := terminology.NewManager(mockProvider)
 
 	// Create translation engine
 	engine := translator.NewEngine(mockProvider, termManager)

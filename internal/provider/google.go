@@ -46,18 +46,6 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	// Build generation config
 	config := &genai.GenerateContentConfig{}
 
-	// Configure generation parameters
-	if req.Temperature > 0 {
-		temp := float32(req.Temperature)
-		config.Temperature = &temp
-	}
-
-	// Set MaxOutputTokens only if explicitly specified
-	// SDK will use appropriate defaults for each model
-	if req.MaxTokens > 0 {
-		config.MaxOutputTokens = int32(req.MaxTokens)
-	}
-
 	// Add system instruction if provided
 	if req.SystemMsg != "" {
 		config.SystemInstruction = &genai.Content{
@@ -77,10 +65,38 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 		},
 	}
 
-	// Generate content
-	resp, err := p.client.Models.GenerateContent(ctx, p.modelName, contents, config)
-	if err != nil {
-		return nil, domain.NewProviderError("Gemini API error", err).
+	// Generate content with timeout handling
+	type result struct {
+		resp *genai.GenerateContentResponse
+		err  error
+	}
+
+	resultChan := make(chan result, 1)
+
+	go func() {
+		apiResp, apiErr := p.client.Models.GenerateContent(ctx, p.modelName, contents, config)
+		resultChan <- result{apiResp, apiErr}
+	}()
+
+	// Wait for result or timeout
+	var resp *genai.GenerateContentResponse
+	select {
+	case res := <-resultChan:
+		if res.err != nil {
+			// Check if error is due to invalid model name
+			errMsg := res.err.Error()
+			if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "models/") {
+				return nil, domain.NewProviderError("invalid model name or model not available", res.err).
+					WithContext("model", p.modelName).
+					WithContext("provider", "gemini")
+			}
+			return nil, domain.NewProviderError("Gemini API error", res.err).
+				WithContext("model", p.modelName).
+				WithContext("provider", "gemini")
+		}
+		resp = res.resp
+	case <-ctx.Done():
+		return nil, domain.NewProviderError("Gemini API call timeout or cancelled", ctx.Err()).
 			WithContext("model", p.modelName).
 			WithContext("provider", "gemini")
 	}
@@ -88,13 +104,26 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	// Extract response text
 	if len(resp.Candidates) == 0 {
 		return nil, domain.NewProviderError("no response candidates from Gemini", nil).
-			WithContext("model", p.modelName)
+			WithContext("model", p.modelName).
+			WithContext("prompt_length", len(req.Prompt))
 	}
 
 	candidate := resp.Candidates[0]
+
+	// Check finish reason for safety or other issues
+	finishReason := string(candidate.FinishReason)
+	if finishReason == "SAFETY" || finishReason == "RECITATION" {
+		return nil, domain.NewProviderError("Gemini blocked response due to safety/recitation", nil).
+			WithContext("model", p.modelName).
+			WithContext("finish_reason", finishReason).
+			WithContext("prompt_length", len(req.Prompt))
+	}
+
 	if candidate.Content == nil || len(candidate.Content.Parts) == 0 {
 		return nil, domain.NewProviderError("empty response from Gemini", nil).
-			WithContext("model", p.modelName)
+			WithContext("model", p.modelName).
+			WithContext("finish_reason", finishReason).
+			WithContext("prompt_length", len(req.Prompt))
 	}
 
 	// Concatenate all text parts
@@ -109,11 +138,11 @@ func (p *GeminiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 	responseText := textBuilder.String()
 	if responseText == "" {
 		return nil, domain.NewProviderError("empty text in Gemini response", nil).
-			WithContext("model", p.modelName)
+			WithContext("model", p.modelName).
+			WithContext("finish_reason", finishReason).
+			WithContext("parts_count", len(candidate.Content.Parts)).
+			WithContext("prompt_length", len(req.Prompt))
 	}
-
-	// Extract finish reason
-	finishReason := string(candidate.FinishReason)
 
 	// Extract usage information
 	usage := Usage{

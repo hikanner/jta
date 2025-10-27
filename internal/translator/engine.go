@@ -29,14 +29,15 @@ func NewEngine(
 	provider provider.AIProvider,
 	termManager *terminology.Manager,
 ) *Engine {
+	reflectionEngine := NewReflectionEngine(provider)
 	return &Engine{
 		provider:         provider,
 		termManager:      termManager,
 		formatProtector:  format.NewProtector(),
-		batchProcessor:   NewBatchProcessor(provider),
+		batchProcessor:   NewBatchProcessor(provider, reflectionEngine),
 		keyFilter:        keyfilter.NewFilter(),
 		rtlProcessor:     rtl.NewProcessor(),
-		reflectionEngine: NewReflectionEngine(provider),
+		reflectionEngine: reflectionEngine,
 	}
 }
 
@@ -100,28 +101,32 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 
 	result.Stats.TotalItems = len(items)
 
-	// Step 2: Load or detect terminology (if not disabled)
+	// Step 2: Load terminology (if not disabled)
 	var terminology *domain.Terminology
-	if !input.Options.NoTerminology && input.Terminology != nil {
+	var terminologyTranslation *domain.TerminologyTranslation
+	if !input.Options.NoTerminology {
 		terminology = input.Terminology
+		terminologyTranslation = input.TerminologyTranslation
 	}
 
 	// Step 3: Build terminology dictionary for prompt
 	var termDict string
 	if terminology != nil {
-		termDict = e.termManager.BuildPromptDictionary(terminology, input.TargetLang)
+		termDict = e.termManager.BuildPromptDictionary(terminology, terminologyTranslation)
 	}
 
 	// Step 4: Create batches for translation
 	batches := e.createBatches(items, input.Options.BatchSize)
 
-	// Step 5: Process batches with concurrency
+	// Step 5: Process batches with concurrency (includes per-batch reflection)
 	translations, stats, err := e.batchProcessor.ProcessBatches(
 		ctx,
 		batches,
 		input.SourceLang,
 		input.TargetLang,
 		termDict,
+		terminology,
+		terminologyTranslation,
 		input.Options.Concurrency,
 	)
 
@@ -138,37 +143,10 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	result.Stats.SuccessItems = len(translations)
 	result.Stats.FailedItems = result.Stats.TotalItems - result.Stats.SuccessItems
 
-	// Step 5.5: Apply lightweight reflection (Agentic quality optimization)
-	if e.reflectionEngine.ShouldReflect(translations, terminology) {
-		reflectionInput := ReflectionInput{
-			SourceTexts:     make(map[string]string),
-			TranslatedTexts: translations,
-			SourceLang:      input.SourceLang,
-			TargetLang:      input.TargetLang,
-			Terminology:     terminology,
-		}
+	// Note: Reflection is now done per-batch in ProcessBatches for better scalability
+	// No need for global reflection here
 
-		// Extract source texts for reflection
-		for _, item := range items {
-			reflectionInput.SourceTexts[item.Key] = item.Text
-		}
-
-		reflectionResult, err := e.reflectionEngine.Reflect(ctx, reflectionInput)
-		if err != nil {
-			// Log error but don't fail the entire translation
-			// Reflection is an optimization, not a requirement
-			fmt.Printf("⚠️  Reflection failed: %v\n", err)
-		} else if reflectionResult.ReflectionNeeded && len(reflectionResult.ImprovedTexts) > 0 {
-			// Apply improvements
-			for key, improved := range reflectionResult.ImprovedTexts {
-				translations[key] = improved
-			}
-			// Update stats with additional API calls
-			result.Stats.APICallsCount += reflectionResult.APICallsUsed
-		}
-	}
-
-	// Step 5.6: Apply RTL processing if target language is RTL
+	// Step 5.5: Apply RTL processing if target language is RTL
 	if e.rtlProcessor.NeedProcessing(input.TargetLang) {
 		translations = e.rtlProcessor.ProcessBatch(translations, input.TargetLang)
 	}

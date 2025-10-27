@@ -46,12 +46,14 @@
 ### 1.4 术语管理系统 ✓
 - [x] 术语管理器 (Manager)
 - [x] LLM 术语检测 (Detector)
-- [x] JSON 仓储实现 (Repository)
+- [x] 术语定义仓储 (TermRepository)
+- [x] 术语翻译仓储 (TranslationRepository)
 - [x] 术语翻译功能
 - [x] 术语字典构建
+- [x] 分离式文件结构（terminology.json + terminology.{lang}.json）
 
 **完成时间**: 2025-10-24 12:00
-**文件**: `internal/terminology/*.go` (3 个文件)
+**文件**: `internal/terminology/*.go` (5 个文件)
 
 ### 1.5 格式保护 ✓
 - [x] 格式元素提取
@@ -512,7 +514,82 @@ git push origin v1.0.0
 #    - 上传所有资产
 ```
 
-### 📋 可选改进项（后续版本）
+### 🔄 即将进行的重构
+
+### 术语系统架构重构 (优先级: 高)
+
+**当前问题**:
+- 所有语言翻译混在一个文件 (terminology.json)
+- 数据结构不合理 (`map[string][]string` 难以维护)
+- 每次新增语言都要修改同一文件
+- 多个翻译任务可能产生文件冲突
+
+**新设计方案**:
+
+**文件结构**:
+```
+.jta/
+├── terminology.json       # 术语定义（仅源语言）
+├── terminology.zh.json    # 中文翻译
+├── terminology.ja.json    # 日文翻译
+└── terminology.ko.json    # 韩文翻译
+```
+
+**数据结构**:
+```json
+// terminology.json（术语定义）
+{
+  "sourceLanguage": "en",
+  "preserveTerms": ["API", "OAuth", "JSON"],
+  "consistentTerms": ["credits", "workspace", "prompt"]
+}
+
+// terminology.zh.json（翻译）
+{
+  "sourceLanguage": "en",
+  "targetLanguage": "zh",
+  "translations": {
+    "credits": "积分",
+    "workspace": "工作空间",
+    "prompt": "提示词"
+  }
+}
+```
+
+**CLI 参数变更**:
+- 当前: `--terminology .jta-terminology.json`（指定文件）
+- 新设计: `--terminology-dir .jta/`（指定目录）
+- 默认值: `.jta/`（项目根目录下）
+
+**翻译行为变更**:
+- 当前: 默认增量翻译（如果目标文件存在）
+- 新设计: 默认全量翻译（更直观）
+- 移除: `--force` 参数（不再需要）
+- 新增: `--incremental` 参数（显式启用增量翻译）
+
+**源语言处理**:
+- 从文件名自动推断源语言（en.json → en）
+- 支持 `--source-lang` 参数明确指定
+- 检测源语言变更时提示用户并提供解决方案
+- `--redetect-terms` 参数重新检测术语（替代 `--force-redetect`）
+
+**实施计划**:
+1. ✅ 更新 IMPLEMENTATION_PLAN.md 和 EXECUTION_PLAN.md
+2. 更新 README.md CLI 参数说明
+3. 更新 REQUIREMENTS.md 术语需求
+4. 重构 domain 层数据结构
+5. 重构 terminology 层实现
+6. 更新 CLI 参数处理
+7. 更新测试用例
+8. 编写迁移指南
+
+**预计时间**: 4-6 小时
+**优先级**: 高（架构优化）
+**版本**: v1.1.0
+
+---
+
+## 📋 可选改进项（后续版本）
 
 1. **提升测试覆盖率至 60%+**
    - Provider 集成测试

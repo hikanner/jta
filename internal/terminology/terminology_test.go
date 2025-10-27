@@ -24,12 +24,9 @@ func TestJSONRepositorySaveAndLoad(t *testing.T) {
 
 	// Create test terminology
 	term := &domain.Terminology{
-		SourceLanguage: "en",
-		PreserveTerms:  []string{"GitHub", "API", "OAuth"},
-		ConsistentTerms: map[string][]string{
-			"en": {"user", "repository", "commit"},
-			"zh": {"用户", "仓库", "提交"},
-		},
+		SourceLanguage:  "en",
+		PreserveTerms:   []string{"GitHub", "API", "OAuth"},
+		ConsistentTerms: []string{"user", "repository", "commit"},
 	}
 
 	// Test Save
@@ -112,19 +109,24 @@ func TestJSONRepositoryExists(t *testing.T) {
 }
 
 func TestManagerBuildPromptDictionary(t *testing.T) {
-	repo := NewJSONRepository()
-	manager := NewManager(nil, repo) // Provider not needed for BuildPromptDictionary
+	manager := NewManager(nil) // Provider not needed for BuildPromptDictionary
 
 	terminology := &domain.Terminology{
+		SourceLanguage:  "en",
+		PreserveTerms:   []string{"GitHub", "API"},
+		ConsistentTerms: []string{"user", "repository"},
+	}
+
+	translation := &domain.TerminologyTranslation{
 		SourceLanguage: "en",
-		PreserveTerms:  []string{"GitHub", "API"},
-		ConsistentTerms: map[string][]string{
-			"en": {"user", "repository"},
-			"zh": {"用户", "仓库"},
+		TargetLanguage: "zh",
+		Translations: map[string]string{
+			"user":       "用户",
+			"repository": "仓库",
 		},
 	}
 
-	dict := manager.BuildPromptDictionary(terminology, "zh")
+	dict := manager.BuildPromptDictionary(terminology, translation)
 
 	// Check that dictionary contains expected content
 	if dict == "" {
@@ -151,16 +153,15 @@ func TestManagerBuildPromptDictionary(t *testing.T) {
 }
 
 func TestManagerBuildPromptDictionaryEmpty(t *testing.T) {
-	repo := NewJSONRepository()
-	manager := NewManager(nil, repo)
+	manager := NewManager(nil)
 
 	terminology := &domain.Terminology{
 		SourceLanguage:  "en",
 		PreserveTerms:   []string{},
-		ConsistentTerms: map[string][]string{},
+		ConsistentTerms: []string{},
 	}
 
-	dict := manager.BuildPromptDictionary(terminology, "zh")
+	dict := manager.BuildPromptDictionary(terminology, nil)
 
 	// Should return empty or minimal content for empty terminology
 	// The exact format depends on implementation
@@ -169,62 +170,69 @@ func TestManagerBuildPromptDictionaryEmpty(t *testing.T) {
 	}
 }
 
-func TestTerminologyGetTermTranslation(t *testing.T) {
+func TestTerminologyGetMissingTranslations(t *testing.T) {
 	term := &domain.Terminology{
-		SourceLanguage: "en",
-		ConsistentTerms: map[string][]string{
-			"en": {"user", "repository", "commit"},
-			"zh": {"用户", "仓库", "提交"},
-		},
+		SourceLanguage:  "en",
+		ConsistentTerms: []string{"user", "repository", "commit"},
 	}
 
 	tests := []struct {
-		name       string
-		sourceTerm string
-		targetLang string
-		want       string
-		wantOk     bool
+		name        string
+		translation *domain.TerminologyTranslation
+		want        []string
 	}{
 		{
-			name:       "existing term",
-			sourceTerm: "user",
-			targetLang: "zh",
-			want:       "用户",
-			wantOk:     true,
+			name:        "nil translation - all missing",
+			translation: nil,
+			want:        []string{"user", "repository", "commit"},
 		},
 		{
-			name:       "second term",
-			sourceTerm: "repository",
-			targetLang: "zh",
-			want:       "仓库",
-			wantOk:     true,
+			name: "partial translation",
+			translation: &domain.TerminologyTranslation{
+				SourceLanguage: "en",
+				TargetLanguage: "zh",
+				Translations: map[string]string{
+					"user": "用户",
+				},
+			},
+			want: []string{"repository", "commit"},
 		},
 		{
-			name:       "non-existent term",
-			sourceTerm: "unknown",
-			targetLang: "zh",
-			want:       "",
-			wantOk:     false,
-		},
-		{
-			name:       "target language without translation",
-			sourceTerm: "user",
-			targetLang: "fr",
-			want:       "",
-			wantOk:     false,
+			name: "complete translation",
+			translation: &domain.TerminologyTranslation{
+				SourceLanguage: "en",
+				TargetLanguage: "zh",
+				Translations: map[string]string{
+					"user":       "用户",
+					"repository": "仓库",
+					"commit":     "提交",
+				},
+			},
+			want: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := term.GetTermTranslation(tt.sourceTerm, tt.targetLang)
+			got := term.GetMissingTranslations(tt.translation)
 
-			if ok != tt.wantOk {
-				t.Errorf("GetTermTranslation() ok = %v, want %v", ok, tt.wantOk)
+			if len(got) != len(tt.want) {
+				t.Errorf("GetMissingTranslations() length = %d, want %d", len(got), len(tt.want))
+				return
 			}
 
-			if got != tt.want {
-				t.Errorf("GetTermTranslation() = %s, want %s", got, tt.want)
+			// Check that all expected missing terms are present
+			for _, wantTerm := range tt.want {
+				found := false
+				for _, gotTerm := range got {
+					if gotTerm == wantTerm {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("GetMissingTranslations() missing term %s", wantTerm)
+				}
 			}
 		})
 	}
@@ -232,10 +240,8 @@ func TestTerminologyGetTermTranslation(t *testing.T) {
 
 func TestManagerLoadAndSave(t *testing.T) {
 	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "terminology.json")
 
-	repo := NewJSONRepository()
-	manager := NewManager(nil, repo)
+	manager := NewManager(nil)
 
 	// Create test terminology
 	term := &domain.Terminology{
@@ -244,18 +250,18 @@ func TestManagerLoadAndSave(t *testing.T) {
 	}
 
 	// Test save
-	err := manager.SaveTerminology(testFile, term)
+	err := manager.SaveTerminology(tmpDir, term)
 	if err != nil {
 		t.Fatalf("SaveTerminology() error = %v, want nil", err)
 	}
 
 	// File should exist
-	if !manager.TerminologyExists(testFile) {
+	if !manager.TerminologyExists(tmpDir) {
 		t.Error("File should exist after SaveTerminology()")
 	}
 
 	// Test load
-	loaded, err := manager.LoadTerminology(testFile)
+	loaded, err := manager.LoadTerminology(tmpDir)
 	if err != nil {
 		t.Fatalf("LoadTerminology() error = %v, want nil", err)
 	}
@@ -266,25 +272,23 @@ func TestManagerLoadAndSave(t *testing.T) {
 }
 
 func TestManagerTerminologyExists(t *testing.T) {
-	tmpDir := t.TempDir()
-	existingFile := filepath.Join(tmpDir, "existing.json")
-	nonExistingFile := filepath.Join(tmpDir, "non-existing.json")
+	existingDir := t.TempDir()
+	nonExistingDir := filepath.Join(t.TempDir(), "non-existing")
 
-	repo := NewJSONRepository()
-	manager := NewManager(nil, repo)
+	manager := NewManager(nil)
 
-	// Create existing file
+	// Create existing terminology
 	term := &domain.Terminology{
 		SourceLanguage: "en",
 	}
-	manager.SaveTerminology(existingFile, term)
+	manager.SaveTerminology(existingDir, term)
 
-	if !manager.TerminologyExists(existingFile) {
-		t.Error("TerminologyExists() = false, want true for existing file")
+	if !manager.TerminologyExists(existingDir) {
+		t.Error("TerminologyExists() = false, want true for existing directory")
 	}
 
-	if manager.TerminologyExists(nonExistingFile) {
-		t.Error("TerminologyExists() = true, want false for non-existing file")
+	if manager.TerminologyExists(nonExistingDir) {
+		t.Error("TerminologyExists() = true, want false for non-existing directory")
 	}
 }
 

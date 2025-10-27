@@ -39,6 +39,7 @@ type BatchProgressEvent struct {
 type BatchProcessor struct {
 	provider         provider.AIProvider
 	formatProtector  *format.Protector
+	reflectionEngine *ReflectionEngine
 	progressCallback BatchProgressCallback
 }
 
@@ -48,10 +49,11 @@ func (bp *BatchProcessor) SetProgressCallback(callback BatchProgressCallback) {
 }
 
 // NewBatchProcessor creates a new batch processor
-func NewBatchProcessor(provider provider.AIProvider) *BatchProcessor {
+func NewBatchProcessor(provider provider.AIProvider, reflectionEngine *ReflectionEngine) *BatchProcessor {
 	return &BatchProcessor{
-		provider:        provider,
-		formatProtector: format.NewProtector(),
+		provider:         provider,
+		formatProtector:  format.NewProtector(),
+		reflectionEngine: reflectionEngine,
 	}
 }
 
@@ -61,6 +63,8 @@ func (bp *BatchProcessor) ProcessBatches(
 	batches [][]domain.BatchItem,
 	sourceLang, targetLang string,
 	termDict string,
+	terminology *domain.Terminology,
+	terminologyTranslation *domain.TerminologyTranslation,
 	concurrency int,
 ) (map[string]string, BatchStats, error) {
 	if concurrency <= 0 {
@@ -73,8 +77,13 @@ func (bp *BatchProcessor) ProcessBatches(
 	stats := BatchStats{}
 	var statsMu sync.Mutex
 
+	// Track failed batches
+	failedBatches := make(map[int]error)
+	var failedMu sync.Mutex
+
 	// Create error group with concurrency limit
-	g, ctx := errgroup.WithContext(ctx)
+	// Don't use errgroup's context to avoid canceling other batches on first failure
+	g := new(errgroup.Group)
 	g.SetLimit(concurrency)
 
 	// Process each batch
@@ -83,6 +92,9 @@ func (bp *BatchProcessor) ProcessBatches(
 		batchItems := batch
 
 		g.Go(func() error {
+			// Record total batch time (including translation and reflection)
+			batchTotalStart := time.Now()
+
 			// Notify batch start
 			if bp.progressCallback != nil {
 				bp.progressCallback(BatchProgressEvent{
@@ -163,9 +175,57 @@ func (bp *BatchProcessor) ProcessBatches(
 			}
 
 			if err != nil {
-				return domain.NewTranslationError(fmt.Sprintf("batch %d failed", batchIdx+1), err).
-					WithContext("batch_index", batchIdx+1).
-					WithContext("batch_size", len(batchItems))
+				// Record failure but don't return error (don't cancel other batches)
+				failedMu.Lock()
+				failedBatches[batchIdx] = err
+				failedMu.Unlock()
+				return nil // Don't propagate error to avoid canceling other batches
+			}
+
+			// Apply reflection to this batch if reflection engine is available
+			if bp.reflectionEngine != nil && bp.reflectionEngine.ShouldReflect(batchResults, terminology) {
+				fmt.Printf("[Batch %d] 🔍 Reflecting...\n", batchIdx+1)
+				reflectStartTime := time.Now()
+
+				// Build reflection input for this batch
+				reflectionInput := ReflectionInput{
+					SourceTexts:            make(map[string]string),
+					TranslatedTexts:        batchResults,
+					SourceLang:             sourceLang,
+					TargetLang:             targetLang,
+					Terminology:            terminology,
+					TerminologyTranslation: terminologyTranslation,
+				}
+
+				// Extract source texts from batch items
+				for _, item := range batchItems {
+					reflectionInput.SourceTexts[item.Key] = item.Text
+				}
+
+				// Perform reflection
+				reflectionResult, reflectErr := bp.reflectionEngine.Reflect(ctx, reflectionInput)
+				reflectElapsed := time.Since(reflectStartTime)
+
+				if reflectErr != nil {
+					// Log error but don't fail the batch
+					fmt.Printf("[Batch %d] ✗ Reflection failed (%.1fs): %v\n", batchIdx+1, reflectElapsed.Seconds(), reflectErr)
+				} else if reflectionResult.ReflectionNeeded && len(reflectionResult.ImprovedTexts) > 0 {
+					improvedCount := len(reflectionResult.ImprovedTexts)
+					fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) %d to improve\n", batchIdx+1, reflectElapsed.Seconds(), improvedCount)
+					fmt.Printf("[Batch %d] ✨ Improving...\n", batchIdx+1)
+
+					// Apply improvements
+					for key, improved := range reflectionResult.ImprovedTexts {
+						batchResults[key] = improved
+					}
+
+					// Update API call count
+					statsMu.Lock()
+					stats.APICallsCount += reflectionResult.APICallsUsed
+					statsMu.Unlock()
+				} else {
+					fmt.Printf("[Batch %d] ✓ Reflected       (%.1fs) All OK\n", batchIdx+1, reflectElapsed.Seconds())
+				}
 			}
 
 			// Update results
@@ -181,6 +241,14 @@ func (bp *BatchProcessor) ProcessBatches(
 			stats.TotalTokens += batchTokens
 			statsMu.Unlock()
 
+			// Print final completion
+			batchTotalElapsed := time.Since(batchTotalStart)
+			if bp.reflectionEngine != nil && bp.reflectionEngine.ShouldReflect(batchResults, terminology) {
+				fmt.Printf("[Batch %d] ✅ COMPLETE       (total: %.1fs)\n", batchIdx+1, batchTotalElapsed.Seconds())
+			} else {
+				fmt.Printf("[Batch %d] ✅ COMPLETE       (%.1fs, no reflection)\n", batchIdx+1, batchTotalElapsed.Seconds())
+			}
+
 			return nil
 		})
 	}
@@ -188,6 +256,30 @@ func (bp *BatchProcessor) ProcessBatches(
 	// Wait for all batches to complete
 	if err := g.Wait(); err != nil {
 		return results, stats, err
+	}
+
+	// Check if any batches failed
+	if len(failedBatches) > 0 {
+		// If too many batches failed, return error
+		failureRate := float64(len(failedBatches)) / float64(len(batches))
+		if failureRate > 0.5 {
+			// More than 50% failed - critical error
+			firstFailedIdx := -1
+			var firstError error
+			for idx, err := range failedBatches {
+				if firstFailedIdx == -1 || idx < firstFailedIdx {
+					firstFailedIdx = idx
+					firstError = err
+				}
+			}
+			return results, stats, domain.NewTranslationError(
+				fmt.Sprintf("batch %d failed", firstFailedIdx+1),
+				firstError,
+			).WithContext("failed_batches", len(failedBatches)).
+				WithContext("total_batches", len(batches))
+		}
+		// If less than 50% failed, continue with partial results
+		// The caller will get partial translations
 	}
 
 	return results, stats, nil
@@ -203,11 +295,13 @@ func (bp *BatchProcessor) processSingleBatchOnce(
 	// Build batch translation prompt
 	prompt := bp.buildBatchPrompt(items, sourceLang, targetLang, termDict)
 
+	// Create independent 5-minute timeout for this LLM call
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	// Call AI provider (single attempt)
-	resp, err := bp.provider.Complete(ctx, &provider.CompletionRequest{
-		Prompt:      prompt,
-		Temperature: 0.3,
-		MaxTokens:   4000,
+	resp, err := bp.provider.Complete(callCtx, &provider.CompletionRequest{
+		Prompt: prompt,
 	})
 
 	if err != nil {

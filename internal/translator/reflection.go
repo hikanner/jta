@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/format"
@@ -28,8 +29,6 @@ type ReflectionProgressEvent struct {
 type ReflectionEngine struct {
 	provider         provider.AIProvider
 	formatProtector  *format.Protector
-	maxTokens        int
-	temperature      float32
 	progressCallback ReflectionProgressCallback
 }
 
@@ -43,18 +42,17 @@ func NewReflectionEngine(prov provider.AIProvider) *ReflectionEngine {
 	return &ReflectionEngine{
 		provider:        prov,
 		formatProtector: format.NewProtector(),
-		maxTokens:       3000,
-		temperature:     0.3,
 	}
 }
 
 // ReflectionInput contains input for reflection
 type ReflectionInput struct {
-	SourceTexts     map[string]string // key -> source text
-	TranslatedTexts map[string]string // key -> translated text
-	SourceLang      string
-	TargetLang      string
-	Terminology     *domain.Terminology
+	SourceTexts            map[string]string // key -> source text
+	TranslatedTexts        map[string]string // key -> translated text
+	SourceLang             string
+	TargetLang             string
+	Terminology            *domain.Terminology
+	TerminologyTranslation *domain.TerminologyTranslation
 }
 
 // ReflectionResult contains reflection results
@@ -152,14 +150,16 @@ func (r *ReflectionEngine) reflectStep(ctx context.Context, input ReflectionInpu
 
 	// Call AI provider
 	req := &provider.CompletionRequest{
-		Prompt:      prompt,
-		Model:       r.provider.GetModelName(),
-		Temperature: r.temperature,
-		MaxTokens:   r.maxTokens,
-		SystemMsg:   "You are an expert linguist and translator tasked with evaluating translation quality.",
+		Prompt:    prompt,
+		Model:     r.provider.GetModelName(),
+		SystemMsg: "You are an expert linguist and translator tasked with evaluating translation quality.",
 	}
 
-	resp, err := r.provider.Complete(ctx, req)
+	// Create independent 5-minute timeout for this LLM call
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	resp, err := r.provider.Complete(callCtx, req)
 	if err != nil {
 		return nil, domain.NewTranslationError("reflection API call failed", err).
 			WithContext("source_lang", input.SourceLang).
@@ -184,14 +184,16 @@ func (r *ReflectionEngine) improveStep(
 
 	// Call AI provider
 	req := &provider.CompletionRequest{
-		Prompt:      prompt,
-		Model:       r.provider.GetModelName(),
-		Temperature: r.temperature,
-		MaxTokens:   r.maxTokens,
-		SystemMsg:   "You are an expert translator tasked with improving translations based on expert suggestions.",
+		Prompt:    prompt,
+		Model:     r.provider.GetModelName(),
+		SystemMsg: "You are an expert translator tasked with improving translations based on expert suggestions.",
 	}
 
-	resp, err := r.provider.Complete(ctx, req)
+	// Create independent 5-minute timeout for this LLM call
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	resp, err := r.provider.Complete(callCtx, req)
 	if err != nil {
 		return nil, domain.NewTranslationError("improvement API call failed", err).
 			WithContext("source_lang", input.SourceLang).
@@ -224,16 +226,12 @@ func (r *ReflectionEngine) buildReflectionPrompt(input ReflectionInput) string {
 		sb.WriteString("\n\n")
 	}
 
-	if input.Terminology != nil && len(input.Terminology.ConsistentTerms) > 0 {
+	if input.Terminology != nil && input.TerminologyTranslation != nil && len(input.Terminology.ConsistentTerms) > 0 {
 		sb.WriteString("Consistent terminology translations:\n")
-		// Build terminology dictionary
-		for lang, terms := range input.Terminology.ConsistentTerms {
-			if lang == input.SourceLang {
-				for _, term := range terms {
-					if translation, ok := input.Terminology.GetTermTranslation(term, input.SourceLang); ok {
-						sb.WriteString(fmt.Sprintf("- %s: %s\n", term, translation))
-					}
-				}
+		// Build terminology dictionary from translations
+		for _, term := range input.Terminology.ConsistentTerms {
+			if translation, ok := input.TerminologyTranslation.Translations[term]; ok {
+				sb.WriteString(fmt.Sprintf("- %s: %s\n", term, translation))
 			}
 		}
 		sb.WriteString("\n")

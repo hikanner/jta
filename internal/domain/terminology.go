@@ -18,49 +18,37 @@ type Term struct {
 	Reason  string   `json:"reason,omitempty"`  // Why detected as term
 }
 
-// Terminology represents the complete terminology configuration
+// Terminology represents the terminology definition (source language only)
 type Terminology struct {
-	SourceLanguage  string              `json:"sourceLanguage"`
-	PreserveTerms   []string            `json:"preserveTerms"`
-	ConsistentTerms map[string][]string `json:"consistentTerms"` // lang code -> terms
+	SourceLanguage  string   `json:"sourceLanguage"`
+	PreserveTerms   []string `json:"preserveTerms"`
+	ConsistentTerms []string `json:"consistentTerms"`
 }
 
-// GetTermTranslation returns the translation for a term in target language
-func (t *Terminology) GetTermTranslation(term string, targetLang string) (string, bool) {
-	// Check if it's a preserve term
-	for _, preserveTerm := range t.PreserveTerms {
-		if preserveTerm == term {
-			return term, true // preserve terms stay the same
-		}
-	}
-
-	// Check consistent terms
-	sourceTerms := t.ConsistentTerms[t.SourceLanguage]
-	targetTerms := t.ConsistentTerms[targetLang]
-
-	// Find index in source language
-	for i, sourceTerm := range sourceTerms {
-		if sourceTerm == term {
-			if i < len(targetTerms) {
-				return targetTerms[i], true
-			}
-			break
-		}
-	}
-
-	return "", false
+// TerminologyTranslation represents terminology translations for a specific target language
+type TerminologyTranslation struct {
+	SourceLanguage string            `json:"sourceLanguage"`
+	TargetLanguage string            `json:"targetLanguage"`
+	Translations   map[string]string `json:"translations"` // term -> translation
 }
 
-// GetMissingTranslations returns terms that don't have translation in target language
-func (t *Terminology) GetMissingTranslations(targetLang string) []string {
-	sourceTerms := t.ConsistentTerms[t.SourceLanguage]
-	targetTerms := t.ConsistentTerms[targetLang]
+// GetTermTranslation returns the translation for a term
+func (tt *TerminologyTranslation) GetTermTranslation(term string) (string, bool) {
+	translation, ok := tt.Translations[term]
+	return translation, ok
+}
 
+// GetMissingTranslations returns terms that don't have translation
+func (t *Terminology) GetMissingTranslations(translation *TerminologyTranslation) []string {
 	var missing []string
-	for i, sourceTerm := range sourceTerms {
-		// If target doesn't have this index, or the translation is empty
-		if i >= len(targetTerms) || targetTerms[i] == "" {
-			missing = append(missing, sourceTerm)
+
+	for _, term := range t.ConsistentTerms {
+		if translation == nil {
+			// No translation file exists, all terms are missing
+			missing = append(missing, term)
+		} else if _, ok := translation.Translations[term]; !ok {
+			// Translation file exists but this term is missing
+			missing = append(missing, term)
 		}
 	}
 
@@ -78,19 +66,27 @@ func (t *Terminology) AddPreserveTerm(term string) {
 	t.PreserveTerms = append(t.PreserveTerms, term)
 }
 
-// AddConsistentTerm adds a consistent term for a language
-func (t *Terminology) AddConsistentTerm(lang string, term string) {
-	if t.ConsistentTerms == nil {
-		t.ConsistentTerms = make(map[string][]string)
-	}
-
+// AddConsistentTerm adds a consistent term
+func (t *Terminology) AddConsistentTerm(term string) {
 	// Check if already exists
-	terms := t.ConsistentTerms[lang]
-	for _, existing := range terms {
+	for _, existing := range t.ConsistentTerms {
 		if existing == term {
 			return
 		}
 	}
+	t.ConsistentTerms = append(t.ConsistentTerms, term)
+}
 
-	t.ConsistentTerms[lang] = append(terms, term)
+// NewTerminologyTranslation creates a new terminology translation
+func NewTerminologyTranslation(sourceLang, targetLang string) *TerminologyTranslation {
+	return &TerminologyTranslation{
+		SourceLanguage: sourceLang,
+		TargetLanguage: targetLang,
+		Translations:   make(map[string]string),
+	}
+}
+
+// AddTranslation adds a term translation
+func (tt *TerminologyTranslation) AddTranslation(term, translation string) {
+	tt.Translations[term] = translation
 }

@@ -57,13 +57,8 @@ func (p *OpenAIProvider) Complete(ctx context.Context, req *CompletionRequest) (
 
 	// Call API
 	params := openai.ChatCompletionNewParams{
-		Messages:  messages,
-		Model:     openai.ChatModel(model),
-		MaxTokens: openai.Int(int64(req.MaxTokens)),
-	}
-
-	if req.Temperature > 0 {
-		params.Temperature = openai.Float(float64(req.Temperature))
+		Messages: messages,
+		Model:    openai.ChatModel(model),
 	}
 
 	chatCompletion, err := p.client.Chat.Completions.New(ctx, params)

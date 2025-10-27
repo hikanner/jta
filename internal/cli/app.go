@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hikanner/jta/internal/domain"
 	"github.com/hikanner/jta/internal/incremental"
@@ -27,18 +28,20 @@ type AppConfig struct {
 
 // TranslateParams contains parameters for translation
 type TranslateParams struct {
-	SourcePath    string
-	TargetLang    string
-	OutputPath    string
-	TermPath      string
-	SkipTerms     bool
-	NoTerminology bool
-	Keys          string
-	ExcludeKeys   string
-	Force         bool
-	BatchSize     int
-	Concurrency   int
-	Yes           bool
+	SourcePath      string
+	SourceLang      string
+	TargetLang      string
+	OutputPath      string
+	TerminologyDir  string
+	SkipTerminology bool
+	NoTerminology   bool
+	RedetectTerms   bool
+	Incremental     bool
+	Keys            string
+	ExcludeKeys     string
+	BatchSize       int
+	Concurrency     int
+	Yes             bool
 }
 
 // App is the main application
@@ -77,8 +80,7 @@ func NewApp(ctx context.Context, config AppConfig) (*App, error) {
 	}
 
 	// Create terminology manager
-	termRepo := terminology.NewJSONRepository()
-	termManager := terminology.NewManager(prov, termRepo)
+	termManager := terminology.NewManager(prov)
 
 	// Create translation engine
 	engine := translator.NewEngine(prov, termManager)
@@ -108,111 +110,210 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	}
 	a.ui.PrintSuccess("Source file loaded")
 
-	// Step 2: Determine output path
+	// Step 2: Detect source language if not specified
+	sourceLang := params.SourceLang
+	if sourceLang == "" {
+		// Auto-detect from filename (e.g., "en.json" -> "en")
+		baseName := filepath.Base(params.SourcePath)
+		sourceLang = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		a.ui.PrintSubtle(fmt.Sprintf("Detected source language: %s", sourceLang))
+	}
+
+	// Step 3: Determine output path
 	outputPath := params.OutputPath
 	if outputPath == "" {
 		// Default: same directory as source, with target language suffix
 		dir := filepath.Dir(params.SourcePath)
 		ext := filepath.Ext(params.SourcePath)
 		outputPath = filepath.Join(dir, params.TargetLang+ext)
+	} else {
+		// Check if outputPath is a directory
+		if info, err := os.Stat(outputPath); err == nil && info.IsDir() {
+			// If it's a directory, append the target language filename
+			ext := filepath.Ext(params.SourcePath)
+			outputPath = filepath.Join(outputPath, params.TargetLang+ext)
+		}
 	}
 
-	// Step 3: Check if target exists (for incremental translation)
+	// Step 4: Handle incremental translation mode
 	var target map[string]interface{}
-	targetExists := false
+	var diff *incremental.DiffResult
 
-	if !params.Force {
+	if params.Incremental {
+		// Incremental mode: check if target exists
 		if _, err := os.Stat(outputPath); err == nil {
 			target, err = a.jsonUtil.LoadJSON(outputPath)
-			if err == nil {
-				targetExists = true
-			}
-		}
-	}
+			if err != nil {
+				a.ui.PrintWarning(fmt.Sprintf("Failed to load existing target: %v", err))
+			} else {
+				// Analyze diff
+				a.ui.PrintStep(ui.IconMagnify, "Analyzing changes (incremental mode)...")
+				diff, err = a.incr.AnalyzeDiff(source, target)
+				if err != nil {
+					a.ui.PrintError(fmt.Sprintf("Failed to analyze diff: %v", err))
+					return fmt.Errorf("failed to analyze diff: %w", err)
+				}
 
-	// Step 4: Analyze diff if target exists
-	var diff *incremental.DiffResult
-	if targetExists {
-		a.ui.PrintStep(ui.IconMagnify, "Analyzing changes...")
-		diff, err = a.incr.AnalyzeDiff(source, target)
-		if err != nil {
-			a.ui.PrintError(fmt.Sprintf("Failed to analyze diff: %v", err))
-			return fmt.Errorf("failed to analyze diff: %w", err)
-		}
+				a.ui.PrintSubtle(fmt.Sprintf("New: %s keys", a.ui.FormatNumber(diff.Stats.NewCount)))
+				a.ui.PrintSubtle(fmt.Sprintf("Modified: %s keys", a.ui.FormatNumber(diff.Stats.ModifiedCount)))
+				a.ui.PrintSubtle(fmt.Sprintf("Unchanged: %s keys", a.ui.FormatNumber(diff.Stats.UnchangedCount)))
 
-		a.ui.PrintSubtle(fmt.Sprintf("New: %s keys", a.ui.FormatNumber(diff.Stats.NewCount)))
-		a.ui.PrintSubtle(fmt.Sprintf("Modified: %s keys", a.ui.FormatNumber(diff.Stats.ModifiedCount)))
-		a.ui.PrintSubtle(fmt.Sprintf("Unchanged: %s keys", a.ui.FormatNumber(diff.Stats.UnchangedCount)))
+				if !a.incr.ShouldTranslate(diff, false) {
+					a.ui.PrintSuccess("No changes detected, skipping translation")
+					return nil
+				}
 
-		if !a.incr.ShouldTranslate(diff, params.Force) {
-			a.ui.PrintSuccess("No changes detected, skipping translation")
-			return nil
-		}
+				if !params.Yes {
+					a.ui.PrintInfo(fmt.Sprintf("Will translate %d keys, keep %d unchanged",
+						diff.Stats.NewCount+diff.Stats.ModifiedCount, diff.Stats.UnchangedCount))
+					fmt.Print("Continue? [Y/n] ")
 
-		if !params.Yes {
-			a.ui.PrintInfo(fmt.Sprintf("Will translate %d keys, keep %d unchanged",
-				diff.Stats.NewCount+diff.Stats.ModifiedCount, diff.Stats.UnchangedCount))
-			fmt.Print("Continue? [Y/n] ")
-
-			var response string
-			fmt.Scanln(&response)
-			if strings.ToLower(response) == "n" {
-				a.ui.PrintWarning("Cancelled by user")
-				return fmt.Errorf("cancelled by user")
+					var response string
+					fmt.Scanln(&response)
+					if strings.ToLower(response) == "n" {
+						a.ui.PrintWarning("Cancelled by user")
+						return fmt.Errorf("cancelled by user")
+					}
+				}
 			}
 		}
 	}
 
 	// Step 5: Handle terminology
 	var term *domain.Terminology
+	var termTranslation *domain.TerminologyTranslation
 
 	if !params.NoTerminology {
-		if a.termManager.TerminologyExists(params.TermPath) {
+		// Load or detect terminology
+		if a.termManager.TerminologyExists(params.TerminologyDir) {
 			a.ui.PrintStep(ui.IconBook, "Loading terminology...")
-			term, err = a.termManager.LoadTerminology(params.TermPath)
+			term, err = a.termManager.LoadTerminology(params.TerminologyDir)
 			if err != nil {
 				a.ui.PrintError(fmt.Sprintf("Failed to load terminology: %v", err))
 				return fmt.Errorf("failed to load terminology: %w", err)
 			}
-			a.ui.PrintSuccess("Terminology loaded")
-		} else if !params.SkipTerms {
+
+			// Check source language match
+			if term.SourceLanguage != sourceLang {
+				if params.RedetectTerms {
+					a.ui.PrintWarning(fmt.Sprintf("Source language changed (%s -> %s), re-detecting terminology...", term.SourceLanguage, sourceLang))
+					term = nil // Force re-detection
+				} else {
+					a.ui.PrintWarning(fmt.Sprintf("Source language mismatch: terminology is %s, but source is %s", term.SourceLanguage, sourceLang))
+					a.ui.PrintWarning("Use --redetect-terms to re-detect terminology for the new source language")
+					return fmt.Errorf("source language mismatch")
+				}
+			} else {
+				a.ui.PrintSuccess("Terminology loaded")
+			}
+		}
+
+		// Detect terminology if not loaded
+		if term == nil && !params.SkipTerminology {
 			a.ui.PrintStep(ui.IconMagnify, "Detecting terminology...")
 
 			// Extract texts for detection
 			texts := extractTexts(source)
+			a.ui.PrintSubtle(fmt.Sprintf("Extracted %d text strings from source file", len(texts)))
 
-			terms, err := a.termManager.DetectTerms(ctx, texts, "en")
+			terms, err := a.termManager.DetectTerms(ctx, texts, sourceLang)
 			if err != nil {
 				a.ui.PrintWarning(fmt.Sprintf("Failed to detect terms: %v", err))
 			} else {
 				// Build terminology
 				term = &domain.Terminology{
-					SourceLanguage:  "en",
+					SourceLanguage:  sourceLang,
 					PreserveTerms:   []string{},
-					ConsistentTerms: make(map[string][]string),
+					ConsistentTerms: []string{},
 				}
 
 				for _, t := range terms {
 					if t.Type == domain.TermTypePreserve {
-						term.AddPreserveTerm(t.Term)
+						term.PreserveTerms = append(term.PreserveTerms, t.Term)
 					} else {
-						term.AddConsistentTerm("en", t.Term)
+						term.ConsistentTerms = append(term.ConsistentTerms, t.Term)
 					}
 				}
 
 				a.ui.PrintSuccess(fmt.Sprintf("Detected %s terms", a.ui.FormatNumber(len(terms))))
+				a.ui.PrintSubtle(fmt.Sprintf("  Preserve: %d, Consistent: %d", len(term.PreserveTerms), len(term.ConsistentTerms)))
 
 				// Save terminology
+				shouldSave := params.Yes
 				if !params.Yes {
-					fmt.Printf("Save terminology to %s? [Y/n] ", params.TermPath)
+					fmt.Printf("Save terminology to %s/terminology.json? [Y/n] ", params.TerminologyDir)
 					var response string
 					fmt.Scanln(&response)
-					if strings.ToLower(response) != "n" {
-						err = a.termManager.SaveTerminology(params.TermPath, term)
+					shouldSave = strings.ToLower(response) != "n"
+				}
+
+				if shouldSave {
+					err = a.termManager.SaveTerminology(params.TerminologyDir, term)
+					if err != nil {
+						a.ui.PrintWarning(fmt.Sprintf("Failed to save terminology: %v", err))
+					} else {
+						a.ui.PrintSuccess("Terminology saved")
+					}
+				}
+			}
+		}
+
+		// Load or translate terminology
+		if term != nil && len(term.ConsistentTerms) > 0 {
+			if a.termManager.TranslationExists(params.TerminologyDir, params.TargetLang) {
+				a.ui.PrintStep(ui.IconBook, "Loading terminology translation...")
+				termTranslation, err = a.termManager.LoadTerminologyTranslation(params.TerminologyDir, params.TargetLang)
+				if err != nil {
+					a.ui.PrintError(fmt.Sprintf("Failed to load translation: %v", err))
+					return fmt.Errorf("failed to load terminology translation: %w", err)
+				}
+				a.ui.PrintSuccess("Terminology translation loaded")
+			}
+
+			// Check for missing translations
+			missingTerms := term.GetMissingTranslations(termTranslation)
+			if len(missingTerms) > 0 {
+				a.ui.PrintStep(ui.IconRobot, fmt.Sprintf("Translating %d missing terms...", len(missingTerms)))
+
+				// Create timeout context for term translation (1 minute)
+				translateCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+				defer cancel()
+
+				translations, err := a.termManager.TranslateTerms(translateCtx, missingTerms, sourceLang, params.TargetLang)
+				if err != nil {
+					a.ui.PrintWarning(fmt.Sprintf("Failed to translate terms: %v", err))
+				} else {
+					// Create or update translation
+					if termTranslation == nil {
+						termTranslation = &domain.TerminologyTranslation{
+							SourceLanguage: sourceLang,
+							TargetLanguage: params.TargetLang,
+							Translations:   translations,
+						}
+					} else {
+						// Merge new translations
+						for term, trans := range translations {
+							termTranslation.Translations[term] = trans
+						}
+					}
+
+					a.ui.PrintSuccess("Terms translated")
+
+					// Save translation
+					shouldSave := params.Yes
+					if !params.Yes {
+						fmt.Printf("Save terminology translation to %s/terminology.%s.json? [Y/n] ", params.TerminologyDir, params.TargetLang)
+						var response string
+						fmt.Scanln(&response)
+						shouldSave = strings.ToLower(response) != "n"
+					}
+
+					if shouldSave {
+						err = a.termManager.SaveTerminologyTranslation(params.TerminologyDir, termTranslation)
 						if err != nil {
-							a.ui.PrintWarning(fmt.Sprintf("Failed to save terminology: %v", err))
+							a.ui.PrintWarning(fmt.Sprintf("Failed to save translation: %v", err))
 						} else {
-							a.ui.PrintSuccess("Terminology saved")
+							a.ui.PrintSuccess("Terminology translation saved")
 						}
 					}
 				}
@@ -239,16 +340,17 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	a.setupProgressCallbacks()
 
 	result, err := a.engine.Translate(ctx, domain.TranslationInput{
-		Source:      source,
-		SourceLang:  "en",
-		TargetLang:  params.TargetLang,
-		Terminology: term,
+		Source:                 source,
+		SourceLang:             sourceLang,
+		TargetLang:             params.TargetLang,
+		Terminology:            term,
+		TerminologyTranslation: termTranslation,
 		Options: domain.TranslationOptions{
 			BatchSize:     params.BatchSize,
 			Concurrency:   params.Concurrency,
-			SkipTerms:     params.SkipTerms,
+			SkipTerms:     params.SkipTerminology,
 			NoTerminology: params.NoTerminology,
-			Force:         params.Force,
+			Incremental:   params.Incremental,
 			Keys:          keyPatterns,
 			ExcludeKeys:   excludeKeyPatterns,
 		},
@@ -340,38 +442,26 @@ func (a *App) setupProgressCallbacks() {
 				fmt.Println()
 			}
 			batchCount++
-			fmt.Printf("   🔄 Processing batch %d/%d (%d items)\n",
-				event.BatchIndex, event.TotalBatches, event.BatchSize)
+			fmt.Printf("[Batch %d] 📝 Translating...\n", event.BatchIndex)
 
 		case "complete":
 			successCount++
-			fmt.Printf("   ✅ Batch %d completed (%.1fs, %d tokens)\n",
+			fmt.Printf("[Batch %d] ✓ Translated      (%.1fs, %d tokens)\n",
 				event.BatchIndex, event.Duration.Seconds(), event.Tokens)
 
 		case "retry":
 			retryCount++
-			fmt.Printf("   ⚠️  Batch %d failed (attempt %d/%d): %v\n",
+			fmt.Printf("[Batch %d] ⚠️  Translation failed (attempt %d/%d): %v\n",
 				event.BatchIndex, event.Attempt, event.MaxAttempts, event.Error)
-			fmt.Printf("   ⏰  Retry in %ds...\n", 1<<uint(event.Attempt-1))
+			fmt.Printf("[Batch %d] ⏰  Retry in %ds...\n", event.BatchIndex, 1<<uint(event.Attempt-1))
 
 		case "error":
-			fmt.Printf("   ❌ Batch %d failed after %d attempts: %v\n",
+			fmt.Printf("[Batch %d] ❌ Translation failed after %d attempts: %v\n",
 				event.BatchIndex, event.MaxAttempts, event.Error)
 		}
 	})
 
 	// Setup reflection engine callback
-	a.engine.GetReflectionEngine().SetProgressCallback(func(event translator.ReflectionProgressEvent) {
-		switch event.Type {
-		case "start":
-			fmt.Println()
-			fmt.Printf("   ⭐ Agentic Reflection (processing %d translations)...\n", event.Count)
-
-		case "reflect_complete":
-			fmt.Printf("   🔍 Evaluation complete (%d suggestions)\n", event.Count)
-
-		case "improve_complete":
-			fmt.Printf("   ✨ Improvements applied (%d texts refined)\n", event.Count)
-		}
-	})
+	// Reflection progress is now logged per-batch in BatchProcessor
+	// No need for global reflection callback
 }

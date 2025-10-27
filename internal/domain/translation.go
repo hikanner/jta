@@ -4,11 +4,12 @@ import "time"
 
 // TranslationInput represents the input for translation
 type TranslationInput struct {
-	Source      map[string]interface{} // Source JSON data
-	SourceLang  string
-	TargetLang  string
-	Terminology *Terminology
-	Options     TranslationOptions
+	Source                 map[string]interface{} // Source JSON data
+	SourceLang             string
+	TargetLang             string
+	Terminology            *Terminology
+	TerminologyTranslation *TerminologyTranslation
+	Options                TranslationOptions
 }
 
 // TranslationOptions contains options for translation
@@ -17,7 +18,7 @@ type TranslationOptions struct {
 	Concurrency   int
 	SkipTerms     bool // Skip term detection (but still translate missing terms)
 	NoTerminology bool // Completely disable terminology management
-	Force         bool // Force complete re-translation (ignore existing)
+	Incremental   bool // Incremental translation (only translate new/modified content)
 	Keys          []string
 	ExcludeKeys   []string
 }

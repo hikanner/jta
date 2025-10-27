@@ -111,11 +111,17 @@ jta en.json --to zh --provider anthropic --api-key sk-ant-...
 ### Advanced Usage
 
 ```bash
+# Incremental translation (only translate new/modified content)
+jta en.json --to zh --incremental
+
 # Skip terminology detection (use existing)
-jta en.json --to zh --skip-terms
+jta en.json --to zh --skip-terminology
 
 # Disable terminology management completely
 jta en.json --to zh --no-terminology
+
+# Re-detect terminology (when source language changes)
+jta zh.json --to en --redetect-terms
 
 # Translate specific keys only
 jta en.json --to zh --keys "settings.*,user.*"
@@ -123,11 +129,11 @@ jta en.json --to zh --keys "settings.*,user.*"
 # Exclude certain keys
 jta en.json --to zh --exclude-keys "admin.*,internal.*"
 
-# Force complete re-translation
-jta en.json --to zh --force
-
 # Non-interactive mode (for CI/CD)
 jta en.json --to zh,ja,ko -y
+
+# CI/CD with incremental translation
+jta en.json --to zh --incremental -y
 ```
 
 ## 📖 Documentation
@@ -136,21 +142,94 @@ jta en.json --to zh,ja,ko -y
 
 Jta automatically detects important terminology in your source file and ensures consistent translation:
 
-- **Preserve Terms**: Brand names, technical terms that should never be translated
-- **Consistent Terms**: Domain terms that must be translated uniformly
+- **Preserve Terms**: Brand names, technical terms that should never be translated (e.g., API, OAuth, GitHub)
+- **Consistent Terms**: Domain terms that must be translated uniformly (e.g., credits, workspace, premium)
 
-The terminology is saved to `.jta-terminology.json` and can be manually edited.
+**File Structure:**
+
+Terminology is stored in a dedicated directory (default `.jta/`):
+
+```
+.jta/
+├── terminology.json       # Term definitions (source language)
+├── terminology.zh.json    # Chinese translations
+├── terminology.ja.json    # Japanese translations
+└── terminology.ko.json    # Korean translations
+```
+
+**terminology.json** (source language terms):
+```json
+{
+  "version": "1.0",
+  "sourceLanguage": "en",
+  "detectedAt": "2025-01-26T10:30:00Z",
+  "preserveTerms": ["API", "OAuth", "JSON"],
+  "consistentTerms": ["credits", "workspace", "prompt"]
+}
+```
+
+**terminology.zh.json** (translations):
+```json
+{
+  "version": "1.0",
+  "sourceLanguage": "en",
+  "targetLanguage": "zh",
+  "translatedAt": "2025-01-26T10:31:00Z",
+  "translations": {
+    "credits": "积分",
+    "workspace": "工作空间",
+    "prompt": "提示词"
+  }
+}
+```
+
+**Workflow:**
+1. First run: Detects terms → saves to `terminology.json` → translates to target language
+2. Subsequent runs: Loads existing terms → translates missing terms only
+3. New language: Uses existing `terminology.json` → creates `terminology.{lang}.json`
+
+**Custom Terminology Directory:**
+```bash
+# Use a shared terminology directory
+jta en.json --to zh --terminology-dir ../shared-terms/
+
+# Multiple projects can share the same terminology
+jta projectA/en.json --to zh --terminology-dir ~/company-terms/
+jta projectB/en.json --to ja --terminology-dir ~/company-terms/
+```
 
 ### Incremental Translation
 
-When you run Jta on an existing translation, it intelligently:
+**Default behavior: Full translation**
+- Jta translates all content by default for maximum quality and consistency
+- Simple and predictable: `jta en.json --to zh` always produces a complete translation
+
+**Incremental mode (optional):**
+When you use `--incremental` flag, Jta intelligently:
 
 1. Detects new keys
 2. Identifies modified content
 3. Preserves unchanged translations
 4. Removes deleted keys
 
-This saves time and API costs by only translating what's necessary.
+This saves time and API costs (typically 80-90% reduction on updates).
+
+**Usage:**
+```bash
+# First time: Full translation
+jta en.json --to zh
+
+# After updates: Incremental translation (saves cost)
+jta en.json --to zh --incremental
+
+# Re-translate everything (if not satisfied with existing translation)
+jta en.json --to zh
+```
+
+**Best practice:**
+- Development: Use `--incremental` for frequent updates
+- Production release: Use full translation for maximum quality
+- CI/CD: Use `--incremental -y` for automated updates
 
 ### Format Protection
 
@@ -546,21 +625,23 @@ export GEMINI_API_KEY=...
 
 ```
 Flags:
-  --to string              Target language(s), comma-separated (required)
-  --provider string        AI provider (openai, anthropic, gemini) (default "openai")
-  --model string           Model name (uses default if not specified)
-  --api-key string         API key (or use environment variable)
-  -o, --output string      Output file or directory
-  --terminology string     Terminology file path (default ".jta-terminology.json")
-  --skip-terms            Skip term detection (still translates missing terms)
-  --no-terminology        Disable terminology management completely
-  --keys string           Only translate specified keys (glob patterns)
-  --exclude-keys string   Exclude specified keys (glob patterns)
-  --force                 Force complete re-translation
-  --batch-size int        Batch size for translation (default 20)
-  --concurrency int       Concurrency for batch processing (default 3)
-  -y, --yes               Non-interactive mode
-  -v, --verbose           Verbose output
+  --to string                  Target language(s), comma-separated (required)
+  --provider string            AI provider (openai, anthropic, gemini) (default "openai")
+  --model string               Model name (uses default if not specified)
+  --api-key string             API key (or use environment variable)
+  --source-lang string         Source language (auto-detected from filename if not specified)
+  -o, --output string          Output file or directory
+  --terminology-dir string     Terminology directory (default ".jta/")
+  --skip-terminology           Skip term detection (use existing terminology)
+  --no-terminology             Disable terminology management completely
+  --redetect-terms             Re-detect terminology (use when source language changes)
+  --incremental                Incremental translation (only translate new/modified content)
+  --keys string                Only translate specified keys (glob patterns)
+  --exclude-keys string        Exclude specified keys (glob patterns)
+  --batch-size int             Batch size for translation (default 20)
+  --concurrency int            Concurrency for batch processing (default 3)
+  -y, --yes                    Non-interactive mode
+  -v, --verbose                Verbose output
 ```
 
 ## 🔧 Troubleshooting
@@ -596,13 +677,22 @@ If translations are not meeting quality expectations:
    jta en.json --to zh --provider gemini --model gemini-2.0-flash-exp
    ```
 
-2. **Check terminology**: Review and refine `.jta-terminology.json`
+2. **Check terminology**: Review and refine terminology files in `.jta/`
+   ```bash
+   # Edit term definitions
+   vim .jta/terminology.json
+   
+   # Edit translations
+   vim .jta/terminology.zh.json
+   ```
+   
+   Example `terminology.json`:
    ```json
    {
-     "preserve_terms": ["YourBrand", "ProductName"],
-     "consistent_terms": {
-       "en": ["important", "domain", "terms"]
-     }
+     "version": "1.0",
+     "sourceLanguage": "en",
+     "preserveTerms": ["YourBrand", "ProductName", "API"],
+     "consistentTerms": ["important", "domain", "terms"]
    }
    ```
 

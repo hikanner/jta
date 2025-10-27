@@ -27,9 +27,7 @@ func TestMockProviderComplete(t *testing.T) {
 
 	// Test first call
 	req := &CompletionRequest{
-		Prompt:      "Test prompt",
-		Temperature: 0.7,
-		MaxTokens:   100,
+		Prompt: "Test prompt",
 	}
 
 	resp, err := provider.Complete(ctx, req)
@@ -216,11 +214,9 @@ func TestProviderFactory(t *testing.T) {
 
 func TestCompletionRequest(t *testing.T) {
 	req := &CompletionRequest{
-		Prompt:      "Test prompt",
-		Model:       "test-model",
-		Temperature: 0.7,
-		MaxTokens:   100,
-		SystemMsg:   "System message",
+		Prompt:    "Test prompt",
+		Model:     "test-model",
+		SystemMsg: "System message",
 	}
 
 	if req.Prompt != "Test prompt" {
@@ -229,14 +225,6 @@ func TestCompletionRequest(t *testing.T) {
 
 	if req.Model != "test-model" {
 		t.Errorf("Model = %s, want 'test-model'", req.Model)
-	}
-
-	if req.Temperature != 0.7 {
-		t.Errorf("Temperature = %f, want 0.7", req.Temperature)
-	}
-
-	if req.MaxTokens != 100 {
-		t.Errorf("MaxTokens = %d, want 100", req.MaxTokens)
 	}
 
 	if req.SystemMsg != "System message" {

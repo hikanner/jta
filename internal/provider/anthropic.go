@@ -47,15 +47,10 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req *CompletionRequest
 	// Build parameters
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
-		MaxTokens: int64(req.MaxTokens),
+		MaxTokens: 8192, // Anthropic requires MaxTokens, use max supported by Claude 3.5 Sonnet
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(req.Prompt)),
 		},
-	}
-
-	// Add temperature if specified
-	if req.Temperature > 0 {
-		params.Temperature = anthropic.Float(float64(req.Temperature))
 	}
 
 	// Add system prompt if provided

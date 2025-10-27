@@ -11,21 +11,23 @@ import (
 
 var (
 	// Flags
-	targetLangs     string
-	providerFlag    string
-	modelFlag       string
-	apiKeyFlag      string
-	outputFlag      string
-	terminologyFlag string
-	skipTerms       bool
-	noTerminology   bool
-	keysFlag        string
-	excludeKeysFlag string
-	forceFlag       bool
-	batchSizeFlag   int
-	concurrencyFlag int
-	yesFlag         bool
-	verboseFlag     bool
+	targetLangs        string
+	providerFlag       string
+	modelFlag          string
+	apiKeyFlag         string
+	sourceLangFlag     string
+	outputFlag         string
+	terminologyDirFlag string
+	skipTerminology    bool
+	noTerminology      bool
+	redetectTerms      bool
+	incrementalFlag    bool
+	keysFlag           string
+	excludeKeysFlag    string
+	batchSizeFlag      int
+	concurrencyFlag    int
+	yesFlag            bool
+	verboseFlag        bool
 )
 
 // NewRootCmd creates the root command
@@ -57,20 +59,17 @@ Key Features:
   # Use Claude for higher quality (recommended for production)
   jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20250116
 
-  # With custom terminology file
-  jta en.json --to zh --terminology ./config/tech-terms.json
+  # With custom terminology directory
+  jta en.json --to zh --terminology-dir ./config/.jta
 
   # Incremental translation (only new/changed content)
-  jta en.json --to zh --output zh.json  # Run again after source changes
+  jta en.json --to zh --incremental --output zh.json
 
   # Selective translation with key filtering
   jta en.json --to zh --keys "settings.*,user.*" --exclude-keys "internal.*"
 
   # Fast mode: skip terminology detection
-  jta en.json --to zh --skip-terms
-
-  # Force complete re-translation (ignore existing)
-  jta en.json --to zh --force`,
+  jta en.json --to zh --skip-terminology`,
 		Args: cobra.ExactArgs(1),
 		RunE: runTranslate,
 	}
@@ -84,20 +83,24 @@ Key Features:
 	cmd.Flags().StringVar(&modelFlag, "model", "", "Model name (default: gpt-4o, claude-3-5-sonnet-20250116, gemini-2.0-flash-exp)")
 	cmd.Flags().StringVar(&apiKeyFlag, "api-key", "", "API key (or use OPENAI_API_KEY/ANTHROPIC_API_KEY/GEMINI_API_KEY env)")
 
+	// Source settings
+	cmd.Flags().StringVar(&sourceLangFlag, "source-lang", "", "Source language (auto-detected from filename if not specified)")
+
 	// Output settings
 	cmd.Flags().StringVarP(&outputFlag, "output", "o", "", "Output file path (default: <target-lang>.json in source directory)")
-	cmd.Flags().StringVar(&terminologyFlag, "terminology", ".jta-terminology.json", "Terminology file path (auto-created if missing)")
 
 	// Terminology management
-	cmd.Flags().BoolVar(&skipTerms, "skip-terms", false, "Skip auto-detection (use existing terminology file only)")
-	cmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management (faster but less consistent)")
+	cmd.Flags().StringVar(&terminologyDirFlag, "terminology-dir", ".jta", "Terminology directory (default: .jta/)")
+	cmd.Flags().BoolVar(&skipTerminology, "skip-terminology", false, "Skip term detection (use existing terminology)")
+	cmd.Flags().BoolVar(&noTerminology, "no-terminology", false, "Disable terminology management completely")
+	cmd.Flags().BoolVar(&redetectTerms, "redetect-terms", false, "Re-detect terminology (use when source language changes)")
+
+	// Translation behavior
+	cmd.Flags().BoolVar(&incrementalFlag, "incremental", false, "Incremental translation (only translate new/modified content)")
 
 	// Key filtering
 	cmd.Flags().StringVar(&keysFlag, "keys", "", "Include only these keys (glob patterns, e.g., 'settings.*,user.*')")
 	cmd.Flags().StringVar(&excludeKeysFlag, "exclude-keys", "", "Exclude these keys (glob patterns, e.g., 'internal.*,debug.*')")
-
-	// Translation behavior
-	cmd.Flags().BoolVar(&forceFlag, "force", false, "Force complete re-translation (ignore incremental mode)")
 
 	// Performance tuning
 	cmd.Flags().IntVar(&batchSizeFlag, "batch-size", 20, "Items per API call (10-50 recommended, larger = fewer calls but slower)")
@@ -143,18 +146,20 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n🚀 Translating to %s...\n", targetLang)
 
 		err := app.Translate(ctx, TranslateParams{
-			SourcePath:    sourcePath,
-			TargetLang:    targetLang,
-			OutputPath:    outputFlag,
-			TermPath:      terminologyFlag,
-			SkipTerms:     skipTerms,
-			NoTerminology: noTerminology,
-			Keys:          keysFlag,
-			ExcludeKeys:   excludeKeysFlag,
-			Force:         forceFlag,
-			BatchSize:     batchSizeFlag,
-			Concurrency:   concurrencyFlag,
-			Yes:           yesFlag,
+			SourcePath:      sourcePath,
+			SourceLang:      sourceLangFlag,
+			TargetLang:      targetLang,
+			OutputPath:      outputFlag,
+			TerminologyDir:  terminologyDirFlag,
+			SkipTerminology: skipTerminology,
+			NoTerminology:   noTerminology,
+			RedetectTerms:   redetectTerms,
+			Incremental:     incrementalFlag,
+			Keys:            keysFlag,
+			ExcludeKeys:     excludeKeysFlag,
+			BatchSize:       batchSizeFlag,
+			Concurrency:     concurrencyFlag,
+			Yes:             yesFlag,
 		})
 
 		if err != nil {

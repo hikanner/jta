@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/hikanner/jta/internal/domain"
@@ -12,44 +13,41 @@ import (
 )
 
 const (
-	// MAX_CONTEXT_TOKENS is the maximum token count for terminology detection
-	// Conservative estimate suitable for all mainstream models (GPT-3.5+ supports 16K+)
-	MAX_CONTEXT_TOKENS = 10000
-
-	// CONTEXT_USAGE_RATIO is the actual usage ratio (reserve space for prompt and output)
-	CONTEXT_USAGE_RATIO = 0.7
+	// FULL_ANALYSIS_THRESHOLD is the token threshold for choosing detection strategy
+	// Below this threshold: use full LLM analysis (faster, more accurate)
+	// Above this threshold: use hybrid approach (statistical + LLM validation)
+	FULL_ANALYSIS_THRESHOLD = 20000
 )
 
 // Detector handles terminology detection using LLM
 type Detector struct {
-	provider  provider.AIProvider
-	maxTokens int
+	provider provider.AIProvider
 }
 
 // NewDetector creates a new detector
 func NewDetector(provider provider.AIProvider) *Detector {
 	return &Detector{
-		provider:  provider,
-		maxTokens: MAX_CONTEXT_TOKENS,
+		provider: provider,
 	}
 }
 
 // DetectTerms detects terminology from texts using LLM
 func (d *Detector) DetectTerms(ctx context.Context, texts []string, sourceLang string) ([]domain.Term, error) {
+	fmt.Printf("   🔍 DetectTerms called with %d texts, language: %s\n", len(texts), sourceLang)
+
 	// Estimate token count
 	estimatedTokens := d.estimateTokens(texts)
-
-	// Calculate usable tokens (70% for text, 30% for prompt and output)
-	maxUsableTokens := int(float64(d.maxTokens) * CONTEXT_USAGE_RATIO)
+	fmt.Printf("   📊 Estimated tokens: %d (threshold: %d)\n", estimatedTokens, FULL_ANALYSIS_THRESHOLD)
 
 	// Choose strategy based on file size
-	if estimatedTokens <= maxUsableTokens {
+	if estimatedTokens <= FULL_ANALYSIS_THRESHOLD {
 		// Strategy A: Small file - Full LLM analysis
+		fmt.Printf("   ✅ Using full LLM analysis strategy\n")
 		return d.analyzeWithLLM(ctx, texts, sourceLang)
 	}
 
 	// Strategy B: Large file - Hybrid approach (statistical + LLM validation)
-	// Only used in rare scenarios
+	fmt.Printf("   ⚠️  File too large, using hybrid detection strategy\n")
 	return d.hybridDetection(ctx, texts, sourceLang)
 }
 
@@ -71,18 +69,27 @@ func (d *Detector) analyzeWithLLM(ctx context.Context, texts []string, lang stri
 	// Build detection prompt
 	prompt := d.buildDetectionPrompt(doc, lang, len(texts))
 
+	estimatedTokens := d.estimateTokens(texts)
+	fmt.Printf("   📝 Analyzing %d texts with LLM (estimated ~%d tokens)...\n", len(texts), estimatedTokens)
+	fmt.Printf("   ⏳ This may take 30-60 seconds for large files, please wait...\n")
+
+	// Create independent 5-minute timeout for this LLM call
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	// Call LLM (only once)
-	resp, err := d.provider.Complete(ctx, &provider.CompletionRequest{
-		Prompt:      prompt,
-		Temperature: 0.3,
-		MaxTokens:   0, // Let SDK use model-specific defaults
+	resp, err := d.provider.Complete(callCtx, &provider.CompletionRequest{
+		Prompt: prompt,
 	})
 
 	if err != nil {
+		fmt.Printf("   ❌ LLM call failed: %v\n", err)
 		return nil, domain.NewTerminologyError("LLM analysis failed", err).
 			WithContext("language", lang).
 			WithContext("text_count", len(texts))
 	}
+
+	fmt.Printf("   ✅ LLM response received (%d tokens)\n", resp.Usage.TotalTokens)
 
 	// Parse result
 	return d.parseTermsFromJSON(resp.Content)
@@ -221,14 +228,20 @@ type CandidateWord struct {
 // Step 1: Local statistical analysis (no LLM)
 // Step 2: LLM batch validation
 func (d *Detector) hybridDetection(ctx context.Context, texts []string, lang string) ([]domain.Term, error) {
+	fmt.Printf("   🔄 Step 1: Extracting candidate terms using statistical analysis...\n")
+
 	// Step 1: Extract candidate terms using local statistical analysis
 	candidates := d.extractCandidatesSimplified(texts)
 
+	fmt.Printf("   ✅ Found %d candidate terms\n", len(candidates))
+
 	if len(candidates) == 0 {
+		fmt.Printf("   ℹ️  No candidates found, returning empty list\n")
 		return []domain.Term{}, nil
 	}
 
 	// Step 2: Validate candidates with LLM
+	fmt.Printf("   🔄 Step 2: Validating candidates with LLM...\n")
 	return d.validateWithLLM(ctx, candidates, lang)
 }
 
@@ -425,19 +438,35 @@ func (d *Detector) isSpecialFormat(word string) bool {
 
 // validateWithLLM validates candidates with LLM in batches
 func (d *Detector) validateWithLLM(ctx context.Context, candidates map[string]*CandidateWord, lang string) ([]domain.Term, error) {
-	batches := d.batchCandidates(candidates, 30)
+	batches := d.batchCandidates(candidates, 500)
+
+	fmt.Printf("   📦 Split into %d batches (500 candidates per batch)\n", len(batches))
 
 	allTerms := []domain.Term{}
 
 	for i, batch := range batches {
+		fmt.Printf("   🔄 Validating batch %d/%d...\n", i+1, len(batches))
+
 		terms, err := d.validateBatchWithLLM(ctx, batch, lang)
 		if err != nil {
-			return nil, domain.NewTerminologyError(fmt.Sprintf("batch %d validation failed", i+1), err)
+			// Retry once for 504 errors
+			if strings.Contains(err.Error(), "DEADLINE_EXCEEDED") || strings.Contains(err.Error(), "504") {
+				fmt.Printf("   ⚠️  Batch %d failed with timeout, retrying once...\n", i+1)
+				time.Sleep(10 * time.Second) // Brief pause before retry
+				terms, err = d.validateBatchWithLLM(ctx, batch, lang)
+			}
+
+			if err != nil {
+				fmt.Printf("   ❌ Batch %d failed: %v\n", i+1, err)
+				return nil, domain.NewTerminologyError(fmt.Sprintf("batch %d validation failed", i+1), err)
+			}
 		}
 
+		fmt.Printf("   ✅ Batch %d completed, found %d terms\n", i+1, len(terms))
 		allTerms = append(allTerms, terms...)
 	}
 
+	fmt.Printf("   🎉 All batches completed, total %d terms found\n", len(allTerms))
 	return allTerms, nil
 }
 
@@ -445,15 +474,29 @@ func (d *Detector) validateWithLLM(ctx context.Context, candidates map[string]*C
 func (d *Detector) validateBatchWithLLM(ctx context.Context, batch []*CandidateWord, lang string) ([]domain.Term, error) {
 	prompt := d.buildValidationPrompt(batch, lang)
 
-	resp, err := d.provider.Complete(ctx, &provider.CompletionRequest{
-		Prompt:      prompt,
-		Temperature: 0.3,
-		MaxTokens:   0, // Let SDK use defaults
+	// Calculate prompt size
+	promptTokens := len(prompt) / 4 // rough estimate
+	fmt.Printf("      📊 Batch prompt size: %d chars (~%d tokens)\n", len(prompt), promptTokens)
+	fmt.Printf("      ⏳ Calling LLM API...\n")
+
+	// Create independent 5-minute timeout for this LLM call
+	batchCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	startTime := time.Now()
+
+	resp, err := d.provider.Complete(batchCtx, &provider.CompletionRequest{
+		Prompt: prompt,
 	})
 
+	elapsed := time.Since(startTime)
+
 	if err != nil {
+		fmt.Printf("      ❌ LLM API failed after %.1fs: %v\n", elapsed.Seconds(), err)
 		return nil, err
 	}
+
+	fmt.Printf("      ✅ LLM API succeeded in %.1fs (%d tokens)\n", elapsed.Seconds(), resp.Usage.TotalTokens)
 
 	return d.parseValidationResult(resp.Content)
 }

@@ -967,35 +967,45 @@ const (
     TermTypeConsistent TermType = "consistent"
 )
 
-// Terminology 表示术语集合
+// Terminology 表示术语定义（仅源语言）
 type Terminology struct {
-    SourceLanguage string            `json:"sourceLanguage"`
-    PreserveTerms  []string          `json:"preserveTerms"`
-    ConsistentTerms map[string][]string `json:"consistentTerms"`
+    SourceLanguage  string   `json:"sourceLanguage"`  // 源语言代码
+    PreserveTerms   []string `json:"preserveTerms"`   // 保留术语（不翻译）
+    ConsistentTerms []string `json:"consistentTerms"` // 一致翻译术语
+}
+
+// TerminologyTranslation 表示术语翻译
+type TerminologyTranslation struct {
+    SourceLanguage string            `json:"sourceLanguage"` // 源语言代码
+    TargetLanguage string            `json:"targetLanguage"` // 目标语言代码
+    Translations   map[string]string `json:"translations"`   // term -> translation
 }
 
 // TerminologyManager 定义术语管理接口
 type TerminologyManager interface {
-    // DetectTerms 使用 LLM 检测术语（可跳过）
+    // DetectTerms 使用 LLM 检测术语
     DetectTerms(ctx context.Context, texts []string, sourceLang string) ([]Term, error)
     
-    // LoadTerminology 加载术语文件
-    LoadTerminology(path string) (*Terminology, error)
+    // LoadTerminology 加载术语定义文件
+    LoadTerminology(terminologyDir string) (*Terminology, error)
     
-    // SaveTerminology 保存术语文件
-    SaveTerminology(path string, terminology *Terminology) error
+    // SaveTerminology 保存术语定义文件
+    SaveTerminology(terminologyDir string, terminology *Terminology) error
     
-    // TranslateTerms 翻译术语（总是执行，确保所有术语都有目标语言翻译）
-    TranslateTerms(ctx context.Context, terms []string, targetLang string) (map[string]string, error)
+    // LoadTerminologyTranslation 加载术语翻译文件
+    LoadTerminologyTranslation(terminologyDir string, targetLang string) (*TerminologyTranslation, error)
     
-    // GetTermTranslation 获取术语翻译
-    GetTermTranslation(term string, targetLang string) (string, bool)
+    // SaveTerminologyTranslation 保存术语翻译文件
+    SaveTerminologyTranslation(terminologyDir string, translation *TerminologyTranslation) error
+    
+    // TranslateTerms 翻译术语到目标语言
+    TranslateTerms(ctx context.Context, terms []string, sourceLang string, targetLang string) (map[string]string, error)
     
     // GetMissingTranslations 获取缺失的术语翻译
-    GetMissingTranslations(targetLang string) []string
+    GetMissingTranslations(terminology *Terminology, translation *TerminologyTranslation) []string
     
     // BuildPromptDictionary 构建用于 prompt 的术语字典
-    BuildPromptDictionary(targetLang string) string
+    BuildPromptDictionary(terminology *Terminology, translation *TerminologyTranslation) string
 }
 ```
 
@@ -1880,7 +1890,7 @@ jta/
 │   │
 │   ├── domain/                        # 领域模型
 │   │   ├── translation.go             # 翻译领域模型
-│   │   ├── terminology.go             # 术语领域模型
+│   │   ├── terminology.go             # 术语领域模型（两种结构）
 │   │   └── language.go                # 语言定义
 │   │
 │   ├── translator/                    # 翻译引擎
@@ -1894,9 +1904,10 @@ jta/
 │   ├── terminology/                   # 术语管理
 │   │   ├── manager.go                 # 术语管理器
 │   │   ├── detector.go                # 术语检测器（LLM）
-│   │   ├── translator.go              # 术语翻译器
+│   │   ├── term_translator.go         # 术语翻译器
 │   │   ├── repository.go              # 术语仓储接口
-│   │   └── json_repository.go         # JSON 仓储实现
+│   │   ├── term_repository.go         # 术语定义仓储实现
+│   │   └── translation_repository.go  # 术语翻译仓储实现
 │   │
 │   ├── provider/                      # AI 提供商
 │   │   ├── provider.go                # 提供商接口
