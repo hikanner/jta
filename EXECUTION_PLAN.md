@@ -154,7 +154,7 @@
 **完成时间**: 2025-10-24 16:30
 **实际耗时**: 0.5 小时
 **文件**: `internal/provider/google.go`
-**特性**: 支持 gemini-2.0-flash-exp 模型，完整 API 集成
+**特性**: 支持 gemini-2.5-flash 模型，完整 API 集成
 
 ### 2.4 JSON 重建逻辑完善 ✓
 - [x] 修复 rebuildJSON 方法

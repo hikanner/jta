@@ -22,7 +22,7 @@ func NewAnthropicProvider(apiKey string, modelName string) (*AnthropicProvider, 
 	}
 
 	if modelName == "" {
-		modelName = "claude-3-5-sonnet-20250116" // default model
+		modelName = "claude-sonnet-4-5" // default model
 	}
 
 	client := anthropic.NewClient(
@@ -47,7 +47,7 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req *CompletionRequest
 	// Build parameters
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
-		MaxTokens: 8192, // Anthropic requires MaxTokens, use max supported by Claude 3.5 Sonnet
+		MaxTokens: 64000, // Anthropic requires MaxTokens, use max supported by Claude 4.5 Sonnet
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(req.Prompt)),
 		},

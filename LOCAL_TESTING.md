@@ -165,7 +165,7 @@ cat test-es.json
   --target zh \
   --output test-zh.json \
   --provider openai \
-  --model gpt-4o \
+  --model gpt-5 \
   --verbose
 
 # 使用 Anthropic Claude
@@ -174,7 +174,7 @@ cat test-es.json
   --target fr \
   --output test-fr.json \
   --provider anthropic \
-  --model claude-3-5-sonnet-20250116
+  --model claude-sonnet-4-5
 ```
 
 ---
@@ -395,7 +395,7 @@ export OPENAI_API_KEY="sk-..."
 ```bash
 # 1. 使用更好的模型
 ./jta translate test-source.json \
-  --model gpt-4o \  # 或 claude-3-5-sonnet-20250116
+  --model gpt-5 \  # 或 claude-sonnet-4-5
   ...
 
 # 2. 添加术语表
@@ -568,7 +568,7 @@ jta-zh input.json --output output-zh.json
 # 创建 .jta.yaml
 cat > .jta.yaml << 'EOF'
 provider: openai
-model: gpt-4o
+model: gpt-5
 batch_size: 20
 concurrency: 3
 source: en

@@ -16,9 +16,9 @@ type ReflectionProgressCallback func(event ReflectionProgressEvent)
 
 // ReflectionProgressEvent represents a reflection event
 type ReflectionProgressEvent struct {
-	Type  string // "start", "reflect_complete", "improve_complete", "complete"
-	Step  string // "reflect", "improve"
-	Count int    // number of texts being processed
+	Type     string        // "reflecting_start", "reflected_complete", "improving_start", "improved_complete"
+	Count    int           // number of texts being processed
+	Duration time.Duration // time spent (only for complete events)
 }
 
 // ReflectionEngine implements Agentic reflection mechanism
@@ -27,14 +27,8 @@ type ReflectionProgressEvent struct {
 // Step 2: Improve - LLM improves translation based on suggestions
 // Target: 3x API calls (translate → reflect → improve)
 type ReflectionEngine struct {
-	provider         provider.AIProvider
-	formatProtector  *format.Protector
-	progressCallback ReflectionProgressCallback
-}
-
-// SetProgressCallback sets the progress callback function
-func (r *ReflectionEngine) SetProgressCallback(callback ReflectionProgressCallback) {
-	r.progressCallback = callback
+	provider        provider.AIProvider
+	formatProtector *format.Protector
 }
 
 // NewReflectionEngine creates a new reflection engine
@@ -60,12 +54,14 @@ type ReflectionResult struct {
 	Suggestions      map[string]string // key -> expert suggestions from LLM
 	ImprovedTexts    map[string]string // key -> improved translations
 	ReflectionNeeded bool
-	APICallsUsed     int // Should be 2 (reflect + improve)
+	APICallsUsed     int           // Should be 2 (reflect + improve)
+	ReflectDuration  time.Duration // Time spent on reflection step
+	ImproveDuration  time.Duration // Time spent on improvement step
 }
 
 // Reflect performs Agentic reflection on translations
 // This is the main entry point following Andrew Ng's two-step approach
-func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (*ReflectionResult, error) {
+func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput, progressCallback ReflectionProgressCallback) (*ReflectionResult, error) {
 	result := &ReflectionResult{
 		Suggestions:   make(map[string]string),
 		ImprovedTexts: make(map[string]string),
@@ -80,16 +76,19 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 
 	result.ReflectionNeeded = true
 
+	// Step 1: Reflection - LLM evaluates translations and provides suggestions
 	// Notify reflection start
-	if r.progressCallback != nil {
-		r.progressCallback(ReflectionProgressEvent{
-			Type:  "start",
+	if progressCallback != nil {
+		progressCallback(ReflectionProgressEvent{
+			Type:  "reflecting_start",
 			Count: len(input.TranslatedTexts),
 		})
 	}
 
-	// Step 1: Reflection - LLM evaluates translations and provides suggestions
+	reflectStart := time.Now()
 	suggestions, err := r.reflectStep(ctx, input)
+	result.ReflectDuration = time.Since(reflectStart)
+
 	if err != nil {
 		return nil, domain.NewTranslationError("reflection step failed", err).
 			WithContext("source_lang", input.SourceLang).
@@ -100,16 +99,27 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	result.APICallsUsed++ // +1 API call for reflection
 
 	// Notify reflection complete
-	if r.progressCallback != nil {
-		r.progressCallback(ReflectionProgressEvent{
-			Type:  "reflect_complete",
-			Step:  "reflect",
-			Count: len(suggestions),
+	if progressCallback != nil {
+		progressCallback(ReflectionProgressEvent{
+			Type:     "reflected_complete",
+			Count:    len(suggestions),
+			Duration: result.ReflectDuration,
 		})
 	}
 
 	// Step 2: Improvement - LLM improves translations based on suggestions
+	// Notify improvement start
+	if progressCallback != nil {
+		progressCallback(ReflectionProgressEvent{
+			Type:  "improving_start",
+			Count: len(suggestions),
+		})
+	}
+
+	improveStart := time.Now()
 	improved, err := r.improveStep(ctx, input, suggestions)
+	result.ImproveDuration = time.Since(improveStart)
+
 	if err != nil {
 		return nil, domain.NewTranslationError("improvement step failed", err).
 			WithContext("source_lang", input.SourceLang).
@@ -120,11 +130,11 @@ func (r *ReflectionEngine) Reflect(ctx context.Context, input ReflectionInput) (
 	result.APICallsUsed++ // +1 API call for improvement
 
 	// Notify improvement complete
-	if r.progressCallback != nil {
-		r.progressCallback(ReflectionProgressEvent{
-			Type:  "improve_complete",
-			Step:  "improve",
-			Count: len(improved),
+	if progressCallback != nil {
+		progressCallback(ReflectionProgressEvent{
+			Type:     "improved_complete",
+			Count:    len(improved),
+			Duration: result.ImproveDuration,
 		})
 	}
 
@@ -341,10 +351,19 @@ func (r *ReflectionEngine) parseReflectionSuggestions(response string, translati
 
 		// Expected format: [key] suggestion text
 		if strings.HasPrefix(line, "[") {
-			closeBracket := strings.Index(line, "]")
-			if closeBracket > 0 {
-				key := line[1:closeBracket]
-				suggestion := strings.TrimSpace(line[closeBracket+1:])
+			// Find the matching closing bracket by looking for "] " pattern
+			// This handles keys that contain brackets (e.g., array indices like "key[0]")
+			closeBracketIdx := -1
+			for i := 1; i < len(line); i++ {
+				if line[i] == ']' && (i+1 >= len(line) || line[i+1] == ' ') {
+					closeBracketIdx = i
+					break
+				}
+			}
+
+			if closeBracketIdx > 0 {
+				key := line[1:closeBracketIdx]
+				suggestion := strings.TrimSpace(line[closeBracketIdx+1:])
 
 				// Only include if the key exists in translations
 				if _, exists := translations[key]; exists && suggestion != "" {
@@ -370,10 +389,19 @@ func (r *ReflectionEngine) parseImprovedTranslations(response string, originalTr
 
 		// Expected format: [key] improved translation
 		if strings.HasPrefix(line, "[") {
-			closeBracket := strings.Index(line, "]")
-			if closeBracket > 0 {
-				key := line[1:closeBracket]
-				translation := strings.TrimSpace(line[closeBracket+1:])
+			// Find the matching closing bracket by looking for "] " pattern
+			// This handles keys that contain brackets (e.g., array indices like "key[0]")
+			closeBracketIdx := -1
+			for i := 1; i < len(line); i++ {
+				if line[i] == ']' && (i+1 >= len(line) || line[i+1] == ' ') {
+					closeBracketIdx = i
+					break
+				}
+			}
+
+			if closeBracketIdx > 0 {
+				key := line[1:closeBracketIdx]
+				translation := strings.TrimSpace(line[closeBracketIdx+1:])
 
 				// Only accept improvements for keys that exist in original
 				if _, exists := originalTranslations[key]; exists && translation != "" {

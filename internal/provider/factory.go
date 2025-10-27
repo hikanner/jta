@@ -52,11 +52,11 @@ func NewProvider(ctx context.Context, config *ProviderConfig) (AIProvider, error
 func GetDefaultModel(providerType ProviderType) string {
 	switch providerType {
 	case ProviderTypeOpenAI:
-		return "gpt-4o"
+		return "gpt-5"
 	case ProviderTypeAnthropic:
-		return "claude-3-5-sonnet-20250116"
+		return "claude-sonnet-4-5"
 	case ProviderTypeGemini:
-		return "gemini-2.0-flash-exp"
+		return "gemini-2.5-flash"
 	default:
 		return ""
 	}
@@ -66,13 +66,45 @@ func GetDefaultModel(providerType ProviderType) string {
 func GetContextWindowSize(providerType ProviderType) int {
 	switch providerType {
 	case ProviderTypeOpenAI:
-		return 128000 // GPT-4o: 128K tokens
+		return 128000 // GPT-5: 128K tokens (estimated, update when official specs available)
 	case ProviderTypeAnthropic:
-		return 200000 // Claude 3.5 Sonnet: 200K tokens
+		return 200000 // Claude Sonnet 4.5: 200K tokens (1M beta available)
 	case ProviderTypeGemini:
-		return 1000000 // Gemini 2.0 Flash: 1M tokens
+		return 1048576 // Gemini 2.5 Flash: ~1M tokens
 	default:
 		return 100000 // conservative estimate
+	}
+}
+
+// GetSupportedModels returns all supported models for a provider type
+func GetSupportedModels(providerType ProviderType) []string {
+	switch providerType {
+	case ProviderTypeOpenAI:
+		return []string{
+			"gpt-5",       // default
+			"gpt-5-mini",  // faster, cost-efficient
+			"gpt-5-nano",  // fastest, most cost-efficient
+			"gpt-5-pro",   // smarter and more precise
+			"gpt-4o",      // legacy (still supported)
+			"gpt-4o-mini", // legacy mini
+		}
+	case ProviderTypeAnthropic:
+		return []string{
+			"claude-sonnet-4-5",          // default
+			"claude-haiku-4-5",           // fastest
+			"claude-opus-4-1",            // exceptional reasoning
+			"claude-sonnet-4-0",          // legacy Sonnet 4
+			"claude-3-5-sonnet-20250116", // legacy 3.5
+		}
+	case ProviderTypeGemini:
+		return []string{
+			"gemini-2.5-flash",      // default (price-performance)
+			"gemini-2.5-pro",        // state-of-the-art thinking
+			"gemini-2.5-flash-lite", // fastest, high throughput
+			"gemini-2.0-flash-exp",  // legacy 2.0
+		}
+	default:
+		return []string{}
 	}
 }
 

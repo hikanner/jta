@@ -91,7 +91,7 @@ jta en.json --to zh,ja,ko
 jta en.json --to zh --output ./locales/
 
 # 指定 AI 提供商
-jta en.json --to zh --provider anthropic --model claude-3-5-sonnet-20250116
+jta en.json --to zh --provider anthropic --model claude-sonnet-4-5
 
 # 强制完整重新翻译（忽略已有翻译）
 jta en.json --to zh --force
@@ -871,7 +871,7 @@ jta en.json --to zh
 # 命令行指定
 jta en.json --to zh \
   --provider anthropic \
-  --model claude-3-5-sonnet-20250116 \
+  --model claude-sonnet-4-5 \
   --api-key sk-ant-...
 
 # 使用自定义端点
@@ -983,9 +983,9 @@ jta --version
 
 | 提供商 | 环境变量 | 推荐模型 |
 |--------|---------|---------|
-| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o`, `gpt-4-turbo` |
-| **Anthropic** | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-20250116` |
-| **Google** | `GEMINI_API_KEY` | `gemini-2.0-flash-exp` |
+| **OpenAI** | `OPENAI_API_KEY` | `gpt-5`, `gpt-5-mini`, `gpt-5-nano` |
+| **Anthropic** | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5`, `claude-haiku-4-5`, `claude-opus-4-1` |
+| **Google** | `GEMINI_API_KEY` | `gemini-2.5-flash`, `gemini-2.5-pro` |
 
 **使用环境变量（推荐）**:
 ```bash
@@ -1309,7 +1309,7 @@ jta en.json --to zh --no-terminology
 ### Q: API 成本大概多少？
 
 **A**: 示例估算（500 个文本，每个平均 20 词）：
-- OpenAI GPT-4o: ~$0.50-1.00
+- OpenAI GPT-5: ~$0.50-1.00
 - Anthropic Claude: ~$0.40-0.80
 - Google Gemini: ~$0.20-0.40
 

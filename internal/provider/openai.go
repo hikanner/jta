@@ -22,7 +22,7 @@ func NewOpenAIProvider(apiKey string, modelName string) (*OpenAIProvider, error)
 	}
 
 	if modelName == "" {
-		modelName = "gpt-4o" // default model
+		modelName = "gpt-5" // default model
 	}
 
 	client := openai.NewClient(

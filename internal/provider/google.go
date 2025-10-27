@@ -22,7 +22,7 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
 	}
 
 	if modelName == "" {
-		modelName = "gemini-2.0-flash-exp" // default model
+		modelName = "gemini-2.5-flash" // default model
 	}
 
 	// Create Gemini client

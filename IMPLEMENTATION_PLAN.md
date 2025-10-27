@@ -518,7 +518,7 @@ func NewOpenAIProvider(apiKey string, modelName string) (*OpenAIProvider, error)
     }
     
     if modelName == "" {
-        modelName = "gpt-4o" // 默认模型
+        modelName = "gpt-5" // 默认模型
     }
     
     client := openai.NewClient(
@@ -613,7 +613,7 @@ func NewAnthropicProvider(apiKey string, modelName string) (*AnthropicProvider, 
     }
     
     if modelName == "" {
-        modelName = "claude-3-5-sonnet-20250116" // 默认模型
+        modelName = "claude-sonnet-4-5" // 默认模型
     }
     
     client := anthropic.NewClient(
@@ -710,7 +710,7 @@ func NewGeminiProvider(ctx context.Context, apiKey string, modelName string) (*G
     }
     
     if modelName == "" {
-        modelName = "gemini-2.0-flash-exp" // 默认模型
+        modelName = "gemini-2.5-flash" // 默认模型
     }
     
     // 初始化客户端
@@ -869,11 +869,11 @@ func NewProvider(ctx context.Context, config *ProviderConfig) (AIProvider, error
 func GetDefaultModel(providerType ProviderType) string {
     switch providerType {
     case ProviderTypeOpenAI:
-        return "gpt-4o"
+        return "gpt-5"
     case ProviderTypeAnthropic:
-        return "claude-3-5-sonnet-20250116"
+        return "claude-sonnet-4-5"
     case ProviderTypeGoogle:
-        return "gemini-2.0-flash-exp"
+        return "gemini-2.5-flash"
     default:
         return ""
     }
@@ -2509,7 +2509,7 @@ func TestFullTranslationFlow(t *testing.T) {
     // 创建配置
     cfg := &config.Config{
         Provider: "openai",
-        Model:    "gpt-4o",
+        Model:    "gpt-5",
         APIKey:   getTestAPIKey(t),
     }
     
