@@ -36,3 +36,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Development documentation (local only)
+EXECUTION_PLAN.md
+IMPLEMENTATION_PLAN.md
+LOCAL_TESTING.md
+TECHNICAL_ANALYSIS.md
+quick-test.sh
