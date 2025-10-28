@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ["1.25"]
+        go-version: ["stable"]
 
     steps:
       - name: Checkout code
@@ -28,6 +28,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
 
       - name: Run tests
+        shell: bash
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
@@ -51,7 +52,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          go-version: "stable"
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
@@ -71,7 +72,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25"
+          go-version: "stable"
 
       - name: Build
         run: go build -v ./cmd/jta
