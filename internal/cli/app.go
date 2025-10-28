@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,7 +137,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	}
 
 	// Step 4: Handle incremental translation mode
-	var target map[string]interface{}
+	var target map[string]any
 	var diff *incremental.DiffResult
 
 	if params.Incremental {
@@ -292,9 +293,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 						}
 					} else {
 						// Merge new translations
-						for term, trans := range translations {
-							termTranslation.Translations[term] = trans
-						}
+						maps.Copy(termTranslation.Translations, translations)
 					}
 
 					a.ui.PrintSuccess("Terms translated")
@@ -379,7 +378,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	a.ui.PrintHeader("Translation Statistics")
 
 	// Build stats map
-	stats := make(map[string]interface{})
+	stats := make(map[string]any)
 
 	// Print filter stats if filtering was applied
 	if result.Stats.FilterStats != nil {
@@ -400,15 +399,15 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 	return nil
 }
 
-func extractTexts(data interface{}) []string {
+func extractTexts(data any) []string {
 	var texts []string
 
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for _, value := range v {
 			texts = append(texts, extractTexts(value)...)
 		}
-	case []interface{}:
+	case []any:
 		for _, value := range v {
 			texts = append(texts, extractTexts(value)...)
 		}

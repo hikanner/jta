@@ -34,7 +34,7 @@ func TestCompleteTranslationWorkflow(t *testing.T) {
 	engine := translator.NewEngine(mockProvider, termManager)
 
 	// Prepare source JSON
-	source := map[string]interface{}{
+	source := map[string]any{
 		"welcome":         "Welcome to our application",
 		"login":           "Sign in",
 		"signup":          "Sign up",
@@ -137,7 +137,7 @@ func TestTranslationWithTerminology(t *testing.T) {
 	}
 
 	// Prepare source JSON with technical terms
-	source := map[string]interface{}{
+	source := map[string]any{
 		"github_api":     "GitHub API is available",
 		"clone_repo":     "Clone Git repository",
 		"create_issue":   "Create a new issue",
@@ -200,7 +200,7 @@ func TestTranslationWithKeyFiltering(t *testing.T) {
 	engine := translator.NewEngine(mockProvider, termManager)
 
 	// Prepare source JSON with multiple keys
-	source := map[string]interface{}{
+	source := map[string]any{
 		"welcome":      "Welcome",
 		"login":        "Login",
 		"settings":     "Settings",
@@ -267,7 +267,7 @@ func TestTranslationErrorHandling(t *testing.T) {
 	engine := translator.NewEngine(mockProvider, termManager)
 
 	// Prepare source JSON
-	source := map[string]interface{}{
+	source := map[string]any{
 		"test": "Test message",
 	}
 
@@ -323,7 +323,7 @@ func TestConcurrentTranslation(t *testing.T) {
 	engine := translator.NewEngine(mockProvider, termManager)
 
 	// Prepare source JSON with enough items for multiple batches
-	source := map[string]interface{}{
+	source := map[string]any{
 		"msg1": "Message one",
 		"msg2": "Message two",
 		"msg3": "Message three",

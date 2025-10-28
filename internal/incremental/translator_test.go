@@ -14,7 +14,7 @@ func TestNewTranslator(t *testing.T) {
 func TestAnalyzeDiff_NilTarget(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
+	source := map[string]any{
 		"name":  "test",
 		"count": float64(42),
 	}
@@ -41,13 +41,13 @@ func TestAnalyzeDiff_NoChanges(t *testing.T) {
 	tr := NewTranslator()
 
 	// Both are source files - same content
-	source := map[string]interface{}{
+	source := map[string]any{
 		"name": "test",
 		"age":  float64(30),
 	}
 
 	// Previous source file (not translation - this is source-to-source comparison)
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name": "test",
 		"age":  float64(30),
 	}
@@ -74,14 +74,14 @@ func TestAnalyzeDiff_NoChanges(t *testing.T) {
 func TestAnalyzeDiff_NewKeys(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
+	source := map[string]any{
 		"name":        "test",
 		"description": "new field",
 		"age":         float64(30),
 	}
 
 	// Previous source (before adding description)
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name": "test",
 		"age":  float64(30),
 	}
@@ -107,12 +107,12 @@ func TestAnalyzeDiff_NewKeys(t *testing.T) {
 func TestAnalyzeDiff_ModifiedKeys(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
+	source := map[string]any{
 		"name": "test updated",
 		"age":  float64(30),
 	}
 
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name": "test",
 		"age":  float64(30),
 	}
@@ -138,12 +138,12 @@ func TestAnalyzeDiff_ModifiedKeys(t *testing.T) {
 func TestAnalyzeDiff_DeletedKeys(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
+	source := map[string]any{
 		"name": "test",
 	}
 
 	// Previous source had more keys
-	target := map[string]interface{}{
+	target := map[string]any{
 		"name": "test",
 		"age":  float64(30),
 	}
@@ -169,22 +169,22 @@ func TestAnalyzeDiff_DeletedKeys(t *testing.T) {
 func TestAnalyzeDiff_NestedObjects(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
-		"user": map[string]interface{}{
+	source := map[string]any{
+		"user": map[string]any{
 			"name": "Alice",
 			"age":  float64(30),
 		},
-		"settings": map[string]interface{}{
+		"settings": map[string]any{
 			"theme": "dark",
 		},
 	}
 
-	target := map[string]interface{}{
-		"user": map[string]interface{}{
+	target := map[string]any{
+		"user": map[string]any{
 			"name": "Alice",
 			"age":  float64(25), // Changed
 		},
-		"settings": map[string]interface{}{
+		"settings": map[string]any{
 			"theme": "dark",
 		},
 	}
@@ -206,16 +206,16 @@ func TestAnalyzeDiff_NestedObjects(t *testing.T) {
 func TestAnalyzeDiff_Arrays(t *testing.T) {
 	tr := NewTranslator()
 
-	source := map[string]interface{}{
-		"items": []interface{}{
+	source := map[string]any{
+		"items": []any{
 			"item1",
 			"item2",
 			"item3",
 		},
 	}
 
-	target := map[string]interface{}{
-		"items": []interface{}{
+	target := map[string]any{
+		"items": []any{
 			"item1",
 			"item2",
 		},
@@ -298,12 +298,12 @@ func TestShouldTranslate(t *testing.T) {
 func TestMergeDiff(t *testing.T) {
 	tr := NewTranslator()
 
-	translated := map[string]interface{}{
+	translated := map[string]any{
 		"name":        "测试",
 		"description": "新字段",
 	}
 
-	unchanged := map[string]interface{}{
+	unchanged := map[string]any{
 		"age":   float64(30),
 		"theme": "dark",
 	}
@@ -344,11 +344,11 @@ func TestMergeDiff(t *testing.T) {
 func TestMergeDiff_OverwriteUnchanged(t *testing.T) {
 	tr := NewTranslator()
 
-	translated := map[string]interface{}{
+	translated := map[string]any{
 		"name": "新名称",
 	}
 
-	unchanged := map[string]interface{}{
+	unchanged := map[string]any{
 		"name": "旧名称",
 		"age":  float64(30),
 	}
@@ -372,39 +372,39 @@ func TestFlattenJSON(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		data     interface{}
-		expected map[string]interface{}
+		data     any
+		expected map[string]any
 	}{
 		{
 			name: "simple object",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test",
 				"age":  float64(30),
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"name": "test",
 				"age":  float64(30),
 			},
 		},
 		{
 			name: "nested object",
-			data: map[string]interface{}{
-				"user": map[string]interface{}{
+			data: map[string]any{
+				"user": map[string]any{
 					"name": "Alice",
 					"age":  float64(30),
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"user.name": "Alice",
 				"user.age":  float64(30),
 			},
 		},
 		{
 			name: "array",
-			data: map[string]interface{}{
-				"items": []interface{}{"a", "b", "c"},
+			data: map[string]any{
+				"items": []any{"a", "b", "c"},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"items[0]": "a",
 				"items[1]": "b",
 				"items[2]": "c",
@@ -412,14 +412,14 @@ func TestFlattenJSON(t *testing.T) {
 		},
 		{
 			name: "deeply nested",
-			data: map[string]interface{}{
-				"app": map[string]interface{}{
-					"settings": map[string]interface{}{
+			data: map[string]any{
+				"app": map[string]any{
+					"settings": map[string]any{
 						"theme": "dark",
 					},
 				},
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"app.settings.theme": "dark",
 			},
 		},
@@ -452,8 +452,8 @@ func TestCompareValues(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		a        interface{}
-		b        interface{}
+		a        any
+		b        any
 		expected bool
 	}{
 		{
@@ -501,12 +501,12 @@ func TestCompareValues(t *testing.T) {
 func TestCountKeys(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		expected int
 	}{
 		{
 			name: "simple object",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test",
 				"age":  float64(30),
 			},
@@ -514,8 +514,8 @@ func TestCountKeys(t *testing.T) {
 		},
 		{
 			name: "nested object",
-			data: map[string]interface{}{
-				"user": map[string]interface{}{
+			data: map[string]any{
+				"user": map[string]any{
 					"name": "Alice",
 					"age":  float64(30),
 				},
@@ -524,16 +524,16 @@ func TestCountKeys(t *testing.T) {
 		},
 		{
 			name: "with array",
-			data: map[string]interface{}{
-				"items": []interface{}{"a", "b", "c"},
+			data: map[string]any{
+				"items": []any{"a", "b", "c"},
 			},
 			expected: 3,
 		},
 		{
 			name: "deeply nested",
-			data: map[string]interface{}{
-				"app": map[string]interface{}{
-					"settings": map[string]interface{}{
+			data: map[string]any{
+				"app": map[string]any{
+					"settings": map[string]any{
 						"theme": "dark",
 						"lang":  "en",
 					},
@@ -544,7 +544,7 @@ func TestCountKeys(t *testing.T) {
 		},
 		{
 			name:     "empty object",
-			data:     map[string]interface{}{},
+			data:     map[string]any{},
 			expected: 0,
 		},
 	}

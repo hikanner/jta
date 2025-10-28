@@ -56,7 +56,7 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 	startTime := time.Now()
 
 	result := &domain.TranslationResult{
-		Target: make(map[string]interface{}),
+		Target: make(map[string]any),
 		Stats: domain.TranslationStats{
 			APICallsCount: 0,
 		},
@@ -153,7 +153,7 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 
 	// Step 6: Rebuild JSON structure with translations
 	rebuilt := e.rebuildJSONWithPath(sourceData, translations, "")
-	if targetMap, ok := rebuilt.(map[string]interface{}); ok {
+	if targetMap, ok := rebuilt.(map[string]any); ok {
 		result.Target = targetMap
 	} else {
 		result.Target = sourceData // fallback to source if rebuild fails
@@ -166,11 +166,11 @@ func (e *Engine) Translate(ctx context.Context, input domain.TranslationInput) (
 }
 
 // extractTranslatableItems recursively extracts all translatable text from JSON
-func (e *Engine) extractTranslatableItems(data interface{}, prefix string) ([]domain.BatchItem, error) {
+func (e *Engine) extractTranslatableItems(data any, prefix string) ([]domain.BatchItem, error) {
 	var items []domain.BatchItem
 
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, value := range v {
 			keyPath := key
 			if prefix != "" {
@@ -183,7 +183,7 @@ func (e *Engine) extractTranslatableItems(data interface{}, prefix string) ([]do
 			items = append(items, subItems...)
 		}
 
-	case []interface{}:
+	case []any:
 		for i, value := range v {
 			keyPath := fmt.Sprintf("%s[%d]", prefix, i)
 			subItems, err := e.extractTranslatableItems(value, keyPath)
@@ -236,10 +236,7 @@ func (e *Engine) createBatches(items []domain.BatchItem, batchSize int) [][]doma
 
 	var batches [][]domain.BatchItem
 	for i := 0; i < len(items); i += batchSize {
-		end := i + batchSize
-		if end > len(items) {
-			end = len(items)
-		}
+		end := min(i+batchSize, len(items))
 		batches = append(batches, items[i:end])
 	}
 
@@ -247,10 +244,10 @@ func (e *Engine) createBatches(items []domain.BatchItem, batchSize int) [][]doma
 }
 
 // rebuildJSONWithPath rebuilds the JSON structure with translations, tracking key paths
-func (e *Engine) rebuildJSONWithPath(source interface{}, translations map[string]string, currentPath string) interface{} {
+func (e *Engine) rebuildJSONWithPath(source any, translations map[string]string, currentPath string) any {
 	switch v := source.(type) {
-	case map[string]interface{}:
-		result := make(map[string]interface{})
+	case map[string]any:
+		result := make(map[string]any)
 		for key, value := range v {
 			keyPath := key
 			if currentPath != "" {
@@ -260,8 +257,8 @@ func (e *Engine) rebuildJSONWithPath(source interface{}, translations map[string
 		}
 		return result
 
-	case []interface{}:
-		result := make([]interface{}, len(v))
+	case []any:
+		result := make([]any, len(v))
 		for i, value := range v {
 			keyPath := fmt.Sprintf("%s[%d]", currentPath, i)
 			result[i] = e.rebuildJSONWithPath(value, translations, keyPath)

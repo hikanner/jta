@@ -15,13 +15,13 @@ func TestRebuildJSONWithPath(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		source       interface{}
+		source       any
 		translations map[string]string
-		expected     interface{}
+		expected     any
 	}{
 		{
 			name: "simple flat object",
-			source: map[string]interface{}{
+			source: map[string]any{
 				"title":       "Hello",
 				"description": "World",
 			},
@@ -29,15 +29,15 @@ func TestRebuildJSONWithPath(t *testing.T) {
 				"title":       "你好",
 				"description": "世界",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"title":       "你好",
 				"description": "世界",
 			},
 		},
 		{
 			name: "nested object",
-			source: map[string]interface{}{
-				"app": map[string]interface{}{
+			source: map[string]any{
+				"app": map[string]any{
 					"name":    "MyApp",
 					"version": "1.0.0",
 				},
@@ -45,8 +45,8 @@ func TestRebuildJSONWithPath(t *testing.T) {
 			translations: map[string]string{
 				"app.name": "我的应用",
 			},
-			expected: map[string]interface{}{
-				"app": map[string]interface{}{
+			expected: map[string]any{
+				"app": map[string]any{
 					"name":    "我的应用",
 					"version": "1.0.0",
 				},
@@ -54,9 +54,9 @@ func TestRebuildJSONWithPath(t *testing.T) {
 		},
 		{
 			name: "deeply nested object",
-			source: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"theme": map[string]interface{}{
+			source: map[string]any{
+				"settings": map[string]any{
+					"theme": map[string]any{
 						"dark":  "Dark Mode",
 						"light": "Light Mode",
 					},
@@ -66,9 +66,9 @@ func TestRebuildJSONWithPath(t *testing.T) {
 				"settings.theme.dark":  "深色模式",
 				"settings.theme.light": "浅色模式",
 			},
-			expected: map[string]interface{}{
-				"settings": map[string]interface{}{
-					"theme": map[string]interface{}{
+			expected: map[string]any{
+				"settings": map[string]any{
+					"theme": map[string]any{
 						"dark":  "深色模式",
 						"light": "浅色模式",
 					},
@@ -77,8 +77,8 @@ func TestRebuildJSONWithPath(t *testing.T) {
 		},
 		{
 			name: "array values",
-			source: map[string]interface{}{
-				"items": []interface{}{
+			source: map[string]any{
+				"items": []any{
 					"First",
 					"Second",
 					"Third",
@@ -89,8 +89,8 @@ func TestRebuildJSONWithPath(t *testing.T) {
 				"items[1]": "第二",
 				"items[2]": "第三",
 			},
-			expected: map[string]interface{}{
-				"items": []interface{}{
+			expected: map[string]any{
+				"items": []any{
 					"第一",
 					"第二",
 					"第三",
@@ -99,7 +99,7 @@ func TestRebuildJSONWithPath(t *testing.T) {
 		},
 		{
 			name: "mixed types",
-			source: map[string]interface{}{
+			source: map[string]any{
 				"text":    "Hello",
 				"number":  42,
 				"boolean": true,
@@ -108,7 +108,7 @@ func TestRebuildJSONWithPath(t *testing.T) {
 			translations: map[string]string{
 				"text": "你好",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"text":    "你好",
 				"number":  42,
 				"boolean": true,
@@ -117,14 +117,14 @@ func TestRebuildJSONWithPath(t *testing.T) {
 		},
 		{
 			name: "partial translations",
-			source: map[string]interface{}{
+			source: map[string]any{
 				"translated":   "Hello",
 				"untranslated": "World",
 			},
 			translations: map[string]string{
 				"translated": "你好",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"translated":   "你好",
 				"untranslated": "World",
 			},
@@ -144,10 +144,10 @@ func TestRebuildJSONWithPath(t *testing.T) {
 }
 
 // deepEqual compares two interfaces deeply
-func deepEqual(a, b interface{}) bool {
+func deepEqual(a, b any) bool {
 	switch va := a.(type) {
-	case map[string]interface{}:
-		vb, ok := b.(map[string]interface{})
+	case map[string]any:
+		vb, ok := b.(map[string]any)
 		if !ok || len(va) != len(vb) {
 			return false
 		}
@@ -159,8 +159,8 @@ func deepEqual(a, b interface{}) bool {
 		}
 		return true
 
-	case []interface{}:
-		vb, ok := b.([]interface{})
+	case []any:
+		vb, ok := b.([]any)
 		if !ok || len(va) != len(vb) {
 			return false
 		}
@@ -184,12 +184,12 @@ func TestExtractTranslatableItems(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		data          interface{}
+		data          any
 		expectedCount int
 	}{
 		{
 			name: "flat object",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"title":       "Hello",
 				"description": "World",
 			},
@@ -197,8 +197,8 @@ func TestExtractTranslatableItems(t *testing.T) {
 		},
 		{
 			name: "nested object",
-			data: map[string]interface{}{
-				"app": map[string]interface{}{
+			data: map[string]any{
+				"app": map[string]any{
 					"name":    "MyApp",
 					"version": "1.0.0",
 				},
@@ -207,7 +207,7 @@ func TestExtractTranslatableItems(t *testing.T) {
 		},
 		{
 			name: "with non-string values",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"text":    "Hello",
 				"number":  42,
 				"boolean": true,
@@ -216,7 +216,7 @@ func TestExtractTranslatableItems(t *testing.T) {
 		},
 		{
 			name: "empty strings ignored",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"text":  "Hello",
 				"empty": "",
 			},
@@ -224,8 +224,8 @@ func TestExtractTranslatableItems(t *testing.T) {
 		},
 		{
 			name: "array values",
-			data: map[string]interface{}{
-				"items": []interface{}{
+			data: map[string]any{
+				"items": []any{
 					"First",
 					"Second",
 				},

@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // TermType represents the type of terminology
 type TermType string
 
@@ -58,10 +60,8 @@ func (t *Terminology) GetMissingTranslations(translation *TerminologyTranslation
 // AddPreserveTerm adds a term to preserve list
 func (t *Terminology) AddPreserveTerm(term string) {
 	// Check if already exists
-	for _, existing := range t.PreserveTerms {
-		if existing == term {
-			return
-		}
+	if slices.Contains(t.PreserveTerms, term) {
+		return
 	}
 	t.PreserveTerms = append(t.PreserveTerms, term)
 }
@@ -69,10 +69,8 @@ func (t *Terminology) AddPreserveTerm(term string) {
 // AddConsistentTerm adds a consistent term
 func (t *Terminology) AddConsistentTerm(term string) {
 	// Check if already exists
-	for _, existing := range t.ConsistentTerms {
-		if existing == term {
-			return
-		}
+	if slices.Contains(t.ConsistentTerms, term) {
+		return
 	}
 	t.ConsistentTerms = append(t.ConsistentTerms, term)
 }

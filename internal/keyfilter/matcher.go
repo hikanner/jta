@@ -50,7 +50,7 @@ func (m *Matcher) matchSingleLevel(keyPath string, pattern *KeyPattern) bool {
 	}
 
 	// Match each part
-	for i := 0; i < len(keyParts); i++ {
+	for i := range keyParts {
 		if patternParts[i] == "*" {
 			continue // Wildcard matches anything
 		}
@@ -97,7 +97,7 @@ func (m *Matcher) matchWildcard(keyPath string, pattern *KeyPattern) bool {
 	}
 
 	// Match each part (from right to left is often more efficient for *.xxx patterns)
-	for i := 0; i < len(keyParts); i++ {
+	for i := range keyParts {
 		if patternParts[i] == "*" {
 			continue
 		}

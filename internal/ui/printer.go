@@ -75,7 +75,7 @@ func (p *Printer) PrintProgress(current, total int, text string) {
 }
 
 // PrintStats prints statistics in a formatted box
-func (p *Printer) PrintStats(stats map[string]interface{}) {
+func (p *Printer) PrintStats(stats map[string]any) {
 	var lines []string
 
 	lines = append(lines, HeaderStyle.Render(IconChart+" Statistics:"))
@@ -121,10 +121,7 @@ func (p *Printer) FormatNumber(n int) string {
 
 	var result []string
 	for i := len(s); i > 0; i -= 3 {
-		start := i - 3
-		if start < 0 {
-			start = 0
-		}
+		start := max(i-3, 0)
 		result = append([]string{s[start:i]}, result...)
 	}
 

@@ -17,13 +17,13 @@ func NewJSONUtil() *JSONUtil {
 }
 
 // LoadJSON loads JSON from a file
-func (j *JSONUtil) LoadJSON(path string) (map[string]interface{}, error) {
+func (j *JSONUtil) LoadJSON(path string) (map[string]any, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = sonic.Unmarshal(data, &result)
 	if err != nil {
 		// Fallback to standard JSON if sonic fails
@@ -37,7 +37,7 @@ func (j *JSONUtil) LoadJSON(path string) (map[string]interface{}, error) {
 }
 
 // SaveJSON saves JSON to a file with pretty formatting
-func (j *JSONUtil) SaveJSON(path string, data map[string]interface{}) error {
+func (j *JSONUtil) SaveJSON(path string, data map[string]any) error {
 	// Use standard json for pretty printing
 	bytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -53,14 +53,14 @@ func (j *JSONUtil) SaveJSON(path string, data map[string]interface{}) error {
 }
 
 // DeepCopy creates a deep copy of a map
-func (j *JSONUtil) DeepCopy(src map[string]interface{}) map[string]interface{} {
+func (j *JSONUtil) DeepCopy(src map[string]any) map[string]any {
 	// Simple implementation using JSON marshal/unmarshal
 	bytes, err := sonic.Marshal(src)
 	if err != nil {
 		return nil
 	}
 
-	var dst map[string]interface{}
+	var dst map[string]any
 	err = sonic.Unmarshal(bytes, &dst)
 	if err != nil {
 		return nil
@@ -70,15 +70,15 @@ func (j *JSONUtil) DeepCopy(src map[string]interface{}) map[string]interface{} {
 }
 
 // CompareJSON compares two JSON objects and returns if they are equal
-func (j *JSONUtil) CompareJSON(a, b interface{}) bool {
+func (j *JSONUtil) CompareJSON(a, b any) bool {
 	return deepCompare(a, b)
 }
 
 // deepCompare performs deep comparison of two values
-func deepCompare(a, b interface{}) bool {
+func deepCompare(a, b any) bool {
 	switch va := a.(type) {
-	case map[string]interface{}:
-		vb, ok := b.(map[string]interface{})
+	case map[string]any:
+		vb, ok := b.(map[string]any)
 		if !ok {
 			return false
 		}
@@ -95,8 +95,8 @@ func deepCompare(a, b interface{}) bool {
 			}
 		}
 		return true
-	case []interface{}:
-		vb, ok := b.([]interface{})
+	case []any:
+		vb, ok := b.([]any)
 		if !ok {
 			return false
 		}
@@ -135,7 +135,7 @@ func deepCompare(a, b interface{}) bool {
 }
 
 // GetValue gets a value from nested JSON using dot notation path
-func (j *JSONUtil) GetValue(data map[string]interface{}, path string) (interface{}, bool) {
+func (j *JSONUtil) GetValue(data map[string]any, path string) (any, bool) {
 	// Simple implementation - should handle dots in keys properly in production
 	// For now, just return if path is in top level
 	if val, ok := data[path]; ok {
@@ -146,7 +146,7 @@ func (j *JSONUtil) GetValue(data map[string]interface{}, path string) (interface
 }
 
 // SetValue sets a value in nested JSON using dot notation path
-func (j *JSONUtil) SetValue(data map[string]interface{}, path string, value interface{}) {
+func (j *JSONUtil) SetValue(data map[string]any, path string, value any) {
 	// Simple implementation - just set at top level for now
 	data[path] = value
 }

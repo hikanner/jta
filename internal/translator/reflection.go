@@ -342,8 +342,8 @@ func (r *ReflectionEngine) buildImprovementPrompt(input ReflectionInput, suggest
 func (r *ReflectionEngine) parseReflectionSuggestions(response string, translations map[string]string) map[string]string {
 	suggestions := make(map[string]string)
 
-	lines := strings.Split(response, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(response, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -380,8 +380,8 @@ func (r *ReflectionEngine) parseReflectionSuggestions(response string, translati
 func (r *ReflectionEngine) parseImprovedTranslations(response string, originalTranslations map[string]string) map[string]string {
 	improved := make(map[string]string)
 
-	lines := strings.Split(response, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(response, "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

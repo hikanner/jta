@@ -3,6 +3,7 @@ package translator
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -113,7 +114,7 @@ func (bp *BatchProcessor) ProcessBatches(
 			var batchTokens int
 			var err error
 
-			for attempt := 0; attempt < maxRetries; attempt++ {
+			for attempt := range maxRetries {
 				startTime := time.Now()
 
 				batchResults, batchTokens, err = bp.processSingleBatchOnce(
@@ -233,9 +234,7 @@ func (bp *BatchProcessor) ProcessBatches(
 					fmt.Printf("[Batch %d] ✗ Reflection failed: %v\n", batchIdx+1, reflectErr)
 				} else if reflectionResult.ReflectionNeeded && len(reflectionResult.ImprovedTexts) > 0 {
 					// Apply improvements
-					for key, improved := range reflectionResult.ImprovedTexts {
-						batchResults[key] = improved
-					}
+					maps.Copy(batchResults, reflectionResult.ImprovedTexts)
 
 					// Update API call count
 					statsMu.Lock()
@@ -246,9 +245,7 @@ func (bp *BatchProcessor) ProcessBatches(
 
 			// Update results
 			resultsMu.Lock()
-			for key, value := range batchResults {
-				results[key] = value
-			}
+			maps.Copy(results, batchResults)
 			resultsMu.Unlock()
 
 			// Update stats
@@ -401,9 +398,9 @@ func (bp *BatchProcessor) parseBatchResponse(content string, items []domain.Batc
 	results := make(map[string]string)
 
 	// Parse line by line
-	lines := strings.Split(content, "\n")
+	lines := strings.SplitSeq(content, "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

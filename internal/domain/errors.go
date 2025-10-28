@@ -29,7 +29,7 @@ type Error struct {
 	Type    ErrorType
 	Message string
 	Err     error
-	Context map[string]interface{}
+	Context map[string]any
 }
 
 // Error implements the error interface
@@ -64,16 +64,16 @@ func (e *Error) Unwrap() error {
 }
 
 // WithContext adds context to the error
-func (e *Error) WithContext(key string, value interface{}) *Error {
+func (e *Error) WithContext(key string, value any) *Error {
 	if e.Context == nil {
-		e.Context = make(map[string]interface{})
+		e.Context = make(map[string]any)
 	}
 	e.Context[key] = value
 	return e
 }
 
 // GetContext retrieves context from the error
-func (e *Error) GetContext(key string) (interface{}, bool) {
+func (e *Error) GetContext(key string) (any, bool) {
 	if e.Context == nil {
 		return nil, false
 	}
@@ -87,7 +87,7 @@ func NewError(errType ErrorType, message string, err error) *Error {
 		Type:    errType,
 		Message: message,
 		Err:     err,
-		Context: make(map[string]interface{}),
+		Context: make(map[string]any),
 	}
 }
 

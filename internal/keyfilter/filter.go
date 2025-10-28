@@ -2,6 +2,7 @@ package keyfilter
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 )
@@ -27,8 +28,8 @@ type KeyPattern struct {
 
 // FilterResult contains the result of key filtering
 type FilterResult struct {
-	Included map[string]interface{} // Keys that match include patterns
-	Excluded map[string]interface{} // Keys that match exclude patterns
+	Included map[string]any // Keys that match include patterns
+	Excluded map[string]any // Keys that match exclude patterns
 	Stats    FilterStats
 }
 
@@ -135,13 +136,13 @@ func (f *Filter) patternToRegex(pattern string) (*regexp.Regexp, error) {
 
 // FilterKeys filters JSON keys based on include and exclude patterns
 func (f *Filter) FilterKeys(
-	data map[string]interface{},
+	data map[string]any,
 	includePatterns []*KeyPattern,
 	excludePatterns []*KeyPattern,
 ) (*FilterResult, error) {
 	result := &FilterResult{
-		Included: make(map[string]interface{}),
-		Excluded: make(map[string]interface{}),
+		Included: make(map[string]any),
+		Excluded: make(map[string]any),
 		Stats:    FilterStats{},
 	}
 
@@ -151,9 +152,7 @@ func (f *Filter) FilterKeys(
 
 	// If no include patterns, include everything by default
 	if len(includePatterns) == 0 {
-		for key, value := range flattened {
-			result.Included[key] = value
-		}
+		maps.Copy(result.Included, flattened)
 	} else {
 		// Apply include patterns
 		for key, value := range flattened {
@@ -200,11 +199,11 @@ func (f *Filter) BuildKeyPath(parts []string) string {
 }
 
 // flattenJSON flattens nested JSON to dot notation
-func (f *Filter) flattenJSON(data interface{}, prefix string) map[string]interface{} {
-	result := make(map[string]interface{})
+func (f *Filter) flattenJSON(data any, prefix string) map[string]any {
+	result := make(map[string]any)
 
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, value := range v {
 			keyPath := key
 			if prefix != "" {
@@ -213,18 +212,14 @@ func (f *Filter) flattenJSON(data interface{}, prefix string) map[string]interfa
 
 			// Recursively flatten
 			subResult := f.flattenJSON(value, keyPath)
-			for k, val := range subResult {
-				result[k] = val
-			}
+			maps.Copy(result, subResult)
 		}
 
-	case []interface{}:
+	case []any:
 		for i, value := range v {
 			keyPath := fmt.Sprintf("%s[%d]", prefix, i)
 			subResult := f.flattenJSON(value, keyPath)
-			for k, val := range subResult {
-				result[k] = val
-			}
+			maps.Copy(result, subResult)
 		}
 
 	default:
@@ -238,8 +233,8 @@ func (f *Filter) flattenJSON(data interface{}, prefix string) map[string]interfa
 }
 
 // RebuildJSON rebuilds JSON structure from flattened keys
-func (f *Filter) RebuildJSON(flattened map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
+func (f *Filter) RebuildJSON(flattened map[string]any) map[string]any {
+	result := make(map[string]any)
 
 	for keyPath, value := range flattened {
 		f.setNestedValue(result, keyPath, value)
@@ -249,7 +244,7 @@ func (f *Filter) RebuildJSON(flattened map[string]interface{}) map[string]interf
 }
 
 // setNestedValue sets a value in nested map using dot notation
-func (f *Filter) setNestedValue(data map[string]interface{}, keyPath string, value interface{}) {
+func (f *Filter) setNestedValue(data map[string]any, keyPath string, value any) {
 	parts := strings.Split(keyPath, ".")
 
 	current := data
@@ -257,10 +252,10 @@ func (f *Filter) setNestedValue(data map[string]interface{}, keyPath string, val
 		part := parts[i]
 
 		if _, exists := current[part]; !exists {
-			current[part] = make(map[string]interface{})
+			current[part] = make(map[string]any)
 		}
 
-		if next, ok := current[part].(map[string]interface{}); ok {
+		if next, ok := current[part].(map[string]any); ok {
 			current = next
 		} else {
 			// Type conflict, skip

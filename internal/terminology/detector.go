@@ -306,7 +306,7 @@ func (d *Detector) extractCandidatesSimplified(texts []string) map[string]*Candi
 		words := d.simpleTokenize(text)
 
 		// Extract 1-3 word phrases
-		for i := 0; i < len(words); i++ {
+		for i := range words {
 			// Single word
 			d.addCandidate(candidates, words[i], text)
 

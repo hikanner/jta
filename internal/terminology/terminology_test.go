@@ -1,11 +1,14 @@
 package terminology
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/hikanner/jta/internal/domain"
+	"github.com/hikanner/jta/internal/provider"
 )
 
 func TestNewJSONRepository(t *testing.T) {
@@ -227,13 +230,7 @@ func TestTerminologyGetMissingTranslations(t *testing.T) {
 
 			// Check that all expected missing terms are present
 			for _, wantTerm := range tt.want {
-				found := false
-				for _, gotTerm := range got {
-					if gotTerm == wantTerm {
-						found = true
-						break
-					}
-				}
+				found := slices.Contains(got, wantTerm)
 				if !found {
 					t.Errorf("GetMissingTranslations() missing term %s", wantTerm)
 				}
@@ -310,4 +307,445 @@ func findSubstring(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// ============================================================================
+// Detector Tests
+// ============================================================================
+
+func TestNewDetector(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	if detector == nil {
+		t.Fatal("NewDetector() returned nil")
+	}
+	if detector.provider == nil {
+		t.Error("Expected provider to be set")
+	}
+}
+
+func TestEstimateTokens(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	tests := []struct {
+		name      string
+		texts     []string
+		minTokens int
+		maxTokens int
+	}{
+		{
+			name:      "Empty texts",
+			texts:     []string{},
+			minTokens: 0,
+			maxTokens: 0,
+		},
+		{
+			name:      "Single short text",
+			texts:     []string{"Hello"},
+			minTokens: 1,
+			maxTokens: 2,
+		},
+		{
+			name:      "Multiple texts",
+			texts:     []string{"Hello world", "This is a test", "Another sentence"},
+			minTokens: 8,
+			maxTokens: 15,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tokens := detector.estimateTokens(tt.texts)
+			if tokens < tt.minTokens || tokens > tt.maxTokens {
+				t.Errorf("estimateTokens() = %d, want between %d and %d",
+					tokens, tt.minTokens, tt.maxTokens)
+			}
+		})
+	}
+}
+
+func TestBuildFullDocument(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	texts := []string{"First text", "Second text", "Third text"}
+	doc := detector.buildFullDocument(texts)
+
+	// Verify document contains all texts
+	for i, text := range texts {
+		if !contains(doc, text) {
+			t.Errorf("Document missing text[%d]: %s", i, text)
+		}
+	}
+
+	// Verify document has structure (numbered entries)
+	if !contains(doc, "[1]") {
+		t.Error("Document should contain [1] marker")
+	}
+}
+
+func TestBuildDetectionPrompt(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	doc := "[1] Test document with API and OAuth"
+	lang := "en"
+	count := 1
+
+	prompt := detector.buildDetectionPrompt(doc, lang, count)
+
+	// Verify prompt contains required elements
+	requiredElements := []string{
+		"terminology",
+		doc,
+		lang,
+		"JSON",
+		"preserve",
+		"consistent",
+	}
+
+	for _, elem := range requiredElements {
+		if !contains(prompt, elem) {
+			t.Errorf("Prompt missing required element: %s", elem)
+		}
+	}
+}
+
+func TestParseTermsFromJSON(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	tests := []struct {
+		name        string
+		content     string
+		expectError bool
+		expectCount int
+	}{
+		{
+			name: "Valid JSON with preserve and consistent terms",
+			content: `{
+				"preserveTerms": [
+					{"term": "API", "reason": "Technical term", "frequency": 1, "examples": ["API usage"]},
+					{"term": "OAuth", "reason": "Protocol", "frequency": 1, "examples": ["OAuth flow"]},
+					{"term": "JSON", "reason": "Format", "frequency": 1, "examples": ["JSON data"]}
+				],
+				"consistentTerms": [
+					{"term": "user", "reason": "Key concept", "frequency": 1, "examples": ["user data"]},
+					{"term": "repository", "reason": "Core term", "frequency": 1, "examples": ["repository info"]}
+				]
+			}`,
+			expectError: false,
+			expectCount: 5,
+		},
+		{
+			name: "Valid JSON with only preserve terms",
+			content: `{
+				"preserveTerms": [
+					{"term": "GitHub", "reason": "Brand", "frequency": 1, "examples": ["GitHub usage"]},
+					{"term": "API", "reason": "Technical", "frequency": 1, "examples": ["API call"]}
+				],
+				"consistentTerms": []
+			}`,
+			expectError: false,
+			expectCount: 2,
+		},
+		{
+			name: "Empty JSON",
+			content: `{
+				"preserveTerms": [],
+				"consistentTerms": []
+			}`,
+			expectError: false,
+			expectCount: 0,
+		},
+		{
+			name:        "Invalid JSON",
+			content:     `{ invalid json }`,
+			expectError: true,
+			expectCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terms, err := detector.parseTermsFromJSON(tt.content)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error for invalid JSON")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			if len(terms) != tt.expectCount {
+				t.Errorf("Got %d terms, want %d", len(terms), tt.expectCount)
+			}
+		})
+	}
+}
+
+func TestDetector_SimpleTokenize(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	tests := []struct {
+		name     string
+		text     string
+		minWords int
+	}{
+		{
+			name:     "Simple sentence",
+			text:     "Hello world",
+			minWords: 2,
+		},
+		{
+			name:     "With punctuation",
+			text:     "Hello, world! How are you?",
+			minWords: 4,
+		},
+		{
+			name:     "With special chars",
+			text:     "GitHub API OAuth",
+			minWords: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			words := detector.simpleTokenize(tt.text)
+			if len(words) < tt.minWords {
+				t.Errorf("simpleTokenize() returned %d words, want at least %d",
+					len(words), tt.minWords)
+			}
+		})
+	}
+}
+
+func TestDetector_IsStopWord(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	stopWords := []string{"the", "a", "an", "and", "or", "but", "is", "are", "was", "were"}
+	nonStopWords := []string{"GitHub", "API", "user", "repository", "OAuth"}
+
+	for _, word := range stopWords {
+		if !detector.isStopWord(word) {
+			t.Errorf("Expected '%s' to be a stop word", word)
+		}
+	}
+
+	for _, word := range nonStopWords {
+		if detector.isStopWord(word) {
+			t.Errorf("Expected '%s' NOT to be a stop word", word)
+		}
+	}
+}
+
+func TestDetector_IsSpecialFormat(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	tests := []struct {
+		word     string
+		expected bool
+		reason   string
+	}{
+		// Should be special format (technical terms)
+		{"API", true, "all caps"},
+		{"JSON", true, "all caps"},
+		{"OAuth", true, "CamelCase"},
+		{"OpenAI", true, "CamelCase"},
+		{"GPT-4", true, "contains number"},
+		{"FLUX.1", true, "contains dot and number"},
+		{"user123", true, "contains number"},
+
+		// Should NOT be special format
+		{"github", false, "lowercase"},
+		{"user", false, "lowercase"},
+		{"test", false, "lowercase"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.word, func(t *testing.T) {
+			result := detector.isSpecialFormat(tt.word)
+			if result != tt.expected {
+				t.Errorf("isSpecialFormat(%s) = %v, want %v (%s)",
+					tt.word, result, tt.expected, tt.reason)
+			}
+		})
+	}
+}
+
+func TestDetector_ExtractCandidatesSimplified(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	texts := []string{
+		"The GitHub API is very useful",
+		"OAuth provides secure authentication",
+		"The API documentation is comprehensive",
+	}
+
+	candidates := detector.extractCandidatesSimplified(texts)
+
+	// Should contain some technical terms (at least one)
+	if len(candidates) == 0 {
+		t.Error("Expected some candidates to be extracted")
+	}
+
+	// API should be present (appears twice)
+	if candidates["API"] != nil {
+		if candidates["API"].Frequency != 2 {
+			t.Errorf("API frequency = %d, want 2", candidates["API"].Frequency)
+		}
+	}
+
+	// Should NOT contain stop words
+	if candidates["the"] != nil {
+		t.Error("Stop word 'the' should not be extracted")
+	}
+	if candidates["is"] != nil {
+		t.Error("Stop word 'is' should not be extracted")
+	}
+}
+
+func TestDetector_BuildValidationPrompt(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	detector := NewDetector(mockProvider)
+
+	candidates := []*CandidateWord{
+		{Word: "GitHub", Frequency: 5, Contexts: []string{"GitHub repository"}},
+		{Word: "API", Frequency: 3, Contexts: []string{"REST API"}},
+	}
+
+	prompt := detector.buildValidationPrompt(candidates, "en")
+
+	// Verify prompt contains candidates
+	if !contains(prompt, "GitHub") {
+		t.Error("Prompt should contain 'GitHub'")
+	}
+	if !contains(prompt, "API") {
+		t.Error("Prompt should contain 'API'")
+	}
+
+	// Verify prompt has structure
+	if !contains(prompt, "terminology") {
+		t.Error("Prompt should mention 'terminology'")
+	}
+}
+
+func TestExtractJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		contains string
+	}{
+		{
+			name:     "JSON with markdown code block",
+			content:  "Some text\n```json\n{\"key\": \"value\"}\n```\nMore text",
+			contains: "key",
+		},
+		{
+			name:     "Plain JSON",
+			content:  `{"preserve": ["API"], "consistent": ["user"]}`,
+			contains: "preserve",
+		},
+		{
+			name:     "JSON with extra text",
+			content:  `Here is the result: {"terms": ["GitHub"]} and that's it`,
+			contains: "terms",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractJSON(tt.content)
+			if !contains(result, tt.contains) {
+				t.Errorf("extractJSON() result should contain '%s', got: %s",
+					tt.contains, result)
+			}
+		})
+	}
+}
+
+func TestDetector_AnalyzeWithLLM_Success(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	// Provide valid JSON response in the expected format
+	mockProvider.AddResponse("```json\n" + `{
+		"preserveTerms": [
+			{"term": "GitHub", "reason": "Brand name", "frequency": 1, "examples": ["GitHub is a platform"]},
+			{"term": "API", "reason": "Technical acronym", "frequency": 1, "examples": ["The API provides access"]},
+			{"term": "OAuth", "reason": "Protocol name", "frequency": 1, "examples": ["OAuth enables authentication"]}
+		],
+		"consistentTerms": [
+			{"term": "platform", "reason": "Key concept", "frequency": 1, "examples": ["GitHub is a platform"]},
+			{"term": "access", "reason": "Important term", "frequency": 1, "examples": ["The API provides access"]}
+		]
+	}` + "\n```")
+
+	detector := NewDetector(mockProvider)
+
+	texts := []string{
+		"GitHub is a platform",
+		"The API provides access",
+		"OAuth enables authentication",
+	}
+
+	terms, err := detector.analyzeWithLLM(context.Background(), texts, "en")
+	if err != nil {
+		t.Fatalf("analyzeWithLLM() error = %v, want nil", err)
+	}
+
+	// Should have parsed 5 terms (3 preserve + 2 consistent)
+	if len(terms) < 3 {
+		t.Errorf("Expected at least 3 terms, got %d", len(terms))
+	}
+}
+
+func TestDetector_AnalyzeWithLLM_Error(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	mockProvider.SetError("API call failed")
+
+	detector := NewDetector(mockProvider)
+
+	texts := []string{"Test text"}
+
+	_, err := detector.analyzeWithLLM(context.Background(), texts, "en")
+	if err == nil {
+		t.Error("Expected error from LLM failure")
+	}
+}
+
+func TestDetector_DetectTerms_SmallFile(t *testing.T) {
+	mockProvider := provider.NewMockProvider("test-model")
+	// Provide valid JSON response in the expected format
+	mockProvider.AddResponse("```json\n" + `{
+		"preserveTerms": [
+			{"term": "API", "reason": "Technical term", "frequency": 1, "examples": ["The API for user management"]}
+		],
+		"consistentTerms": [
+			{"term": "user", "reason": "Key concept", "frequency": 1, "examples": ["user management"]}
+		]
+	}` + "\n```")
+
+	detector := NewDetector(mockProvider)
+
+	// Small file - should use full LLM analysis
+	texts := []string{"The API for user management"}
+
+	terms, err := detector.DetectTerms(context.Background(), texts, "en")
+	if err != nil {
+		t.Fatalf("DetectTerms() error = %v, want nil", err)
+	}
+
+	// Should have parsed 2 terms (1 preserve + 1 consistent)
+	if len(terms) < 2 {
+		t.Errorf("Expected at least 2 terms, got %d", len(terms))
+	}
 }

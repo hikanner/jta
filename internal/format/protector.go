@@ -3,6 +3,7 @@ package format
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -226,10 +227,5 @@ func (p *Protector) BuildFormatInstructions(text string) string {
 }
 
 func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }

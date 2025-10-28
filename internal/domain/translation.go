@@ -4,7 +4,7 @@ import "time"
 
 // TranslationInput represents the input for translation
 type TranslationInput struct {
-	Source                 map[string]interface{} // Source JSON data
+	Source                 map[string]any // Source JSON data
 	SourceLang             string
 	TargetLang             string
 	Terminology            *Terminology
@@ -25,7 +25,7 @@ type TranslationOptions struct {
 
 // TranslationResult represents the result of translation
 type TranslationResult struct {
-	Target map[string]interface{} // Translated JSON data
+	Target map[string]any // Translated JSON data
 	Stats  TranslationStats
 	Errors []TranslationError
 }
@@ -68,10 +68,10 @@ type TranslationError struct {
 
 // BatchItem represents a single item in a translation batch
 type BatchItem struct {
-	Key     string      // JSON key path (e.g., "settings.title")
-	Text    string      // Text to translate
-	Context string      // Context for the translation
-	Value   interface{} // Original value (for non-string types)
+	Key     string // JSON key path (e.g., "settings.title")
+	Text    string // Text to translate
+	Context string // Context for the translation
+	Value   any    // Original value (for non-string types)
 }
 
 // TranslatedItem represents a translated item

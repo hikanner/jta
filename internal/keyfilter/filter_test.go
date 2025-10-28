@@ -62,20 +62,20 @@ func TestParsePatterns(t *testing.T) {
 func TestFilterKeys(t *testing.T) {
 	filter := NewFilter()
 
-	testData := map[string]interface{}{
-		"app": map[string]interface{}{
+	testData := map[string]any{
+		"app": map[string]any{
 			"name":    "Test App",
 			"version": "1.0.0",
 		},
-		"settings": map[string]interface{}{
+		"settings": map[string]any{
 			"title":       "Settings",
 			"description": "App settings",
-			"theme": map[string]interface{}{
+			"theme": map[string]any{
 				"dark":  "Dark Mode",
 				"light": "Light Mode",
 			},
 		},
-		"buttons": map[string]interface{}{
+		"buttons": map[string]any{
 			"save":   "Save",
 			"cancel": "Cancel",
 		},
@@ -207,7 +207,7 @@ func TestMatcherRecursiveWildcard(t *testing.T) {
 func TestRebuildJSON(t *testing.T) {
 	filter := NewFilter()
 
-	flattened := map[string]interface{}{
+	flattened := map[string]any{
 		"app.name":            "Test App",
 		"app.version":         "1.0.0",
 		"settings.title":      "Settings",
@@ -221,7 +221,7 @@ func TestRebuildJSON(t *testing.T) {
 		t.Error("Expected 'app' key in rebuilt JSON")
 	}
 
-	app, ok := rebuilt["app"].(map[string]interface{})
+	app, ok := rebuilt["app"].(map[string]any)
 	if !ok {
 		t.Error("Expected 'app' to be a map")
 	}
@@ -234,7 +234,7 @@ func TestRebuildJSON(t *testing.T) {
 		t.Errorf("Expected app.version = '1.0.0', got %v", app["version"])
 	}
 
-	settings, ok := rebuilt["settings"].(map[string]interface{})
+	settings, ok := rebuilt["settings"].(map[string]any)
 	if !ok {
 		t.Error("Expected 'settings' to be a map")
 	}
@@ -243,7 +243,7 @@ func TestRebuildJSON(t *testing.T) {
 		t.Errorf("Expected settings.title = 'Settings', got %v", settings["title"])
 	}
 
-	theme, ok := settings["theme"].(map[string]interface{})
+	theme, ok := settings["theme"].(map[string]any)
 	if !ok {
 		t.Error("Expected 'settings.theme' to be a map")
 	}
@@ -254,7 +254,7 @@ func TestRebuildJSON(t *testing.T) {
 }
 
 // Helper function to get keys from a map
-func getKeys(m map[string]interface{}) []string {
+func getKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

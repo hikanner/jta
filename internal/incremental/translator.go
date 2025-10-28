@@ -2,14 +2,15 @@ package incremental
 
 import (
 	"fmt"
+	"maps"
 )
 
 // DiffResult represents the result of comparing source and target files
 type DiffResult struct {
-	New       map[string]interface{} // New keys in source
-	Modified  map[string]interface{} // Modified keys (source text changed)
-	Deleted   []string               // Keys in target but not in source
-	Unchanged map[string]interface{} // Keys unchanged
+	New       map[string]any // New keys in source
+	Modified  map[string]any // Modified keys (source text changed)
+	Deleted   []string       // Keys in target but not in source
+	Unchanged map[string]any // Keys unchanged
 	Stats     DiffStats
 }
 
@@ -31,12 +32,12 @@ func NewTranslator() *Translator {
 }
 
 // AnalyzeDiff analyzes the difference between source and target
-func (t *Translator) AnalyzeDiff(source, target map[string]interface{}) (*DiffResult, error) {
+func (t *Translator) AnalyzeDiff(source, target map[string]any) (*DiffResult, error) {
 	result := &DiffResult{
-		New:       make(map[string]interface{}),
-		Modified:  make(map[string]interface{}),
+		New:       make(map[string]any),
+		Modified:  make(map[string]any),
 		Deleted:   []string{},
-		Unchanged: make(map[string]interface{}),
+		Unchanged: make(map[string]any),
 	}
 
 	// If target is nil, everything is new
@@ -95,20 +96,16 @@ func (t *Translator) ShouldTranslate(result *DiffResult, force bool) bool {
 
 // MergeDiff merges translated content with unchanged content
 func (t *Translator) MergeDiff(
-	translated, unchanged map[string]interface{},
+	translated, unchanged map[string]any,
 	deleted []string,
-) map[string]interface{} {
-	result := make(map[string]interface{})
+) map[string]any {
+	result := make(map[string]any)
 
 	// Add unchanged
-	for key, value := range unchanged {
-		result[key] = value
-	}
+	maps.Copy(result, unchanged)
 
 	// Add translated (overwrites unchanged if conflict)
-	for key, value := range translated {
-		result[key] = value
-	}
+	maps.Copy(result, translated)
 
 	// Note: deleted keys are automatically excluded
 
@@ -116,11 +113,11 @@ func (t *Translator) MergeDiff(
 }
 
 // flattenJSON flattens nested JSON to dot notation
-func (t *Translator) flattenJSON(data interface{}, prefix string) map[string]interface{} {
-	result := make(map[string]interface{})
+func (t *Translator) flattenJSON(data any, prefix string) map[string]any {
+	result := make(map[string]any)
 
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, value := range v {
 			keyPath := key
 			if prefix != "" {
@@ -128,18 +125,14 @@ func (t *Translator) flattenJSON(data interface{}, prefix string) map[string]int
 			}
 			// Recursively flatten
 			subResult := t.flattenJSON(value, keyPath)
-			for k, val := range subResult {
-				result[k] = val
-			}
+			maps.Copy(result, subResult)
 		}
 
-	case []interface{}:
+	case []any:
 		for i, value := range v {
 			keyPath := fmt.Sprintf("%s[%d]", prefix, i)
 			subResult := t.flattenJSON(value, keyPath)
-			for k, val := range subResult {
-				result[k] = val
-			}
+			maps.Copy(result, subResult)
 		}
 
 	default:
@@ -151,21 +144,21 @@ func (t *Translator) flattenJSON(data interface{}, prefix string) map[string]int
 }
 
 // compareValues compares two values for equality
-func (t *Translator) compareValues(a, b interface{}) bool {
+func (t *Translator) compareValues(a, b any) bool {
 	// Simple string comparison for now
 	// In production, should handle different types properly
 	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
 }
 
-func countKeys(data map[string]interface{}) int {
+func countKeys(data map[string]any) int {
 	count := 0
 	for _, value := range data {
 		switch v := value.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			count += countKeys(v)
-		case []interface{}:
+		case []any:
 			for _, item := range v {
-				if m, ok := item.(map[string]interface{}); ok {
+				if m, ok := item.(map[string]any); ok {
 					count += countKeys(m)
 				} else {
 					count++

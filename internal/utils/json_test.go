@@ -27,13 +27,13 @@ func TestLoadJSON(t *testing.T) {
 		name      string
 		content   string
 		expectErr bool
-		validate  func(t *testing.T, data map[string]interface{})
+		validate  func(t *testing.T, data map[string]any)
 	}{
 		{
 			name:      "valid simple JSON",
 			content:   `{"name": "test", "count": 42}`,
 			expectErr: false,
-			validate: func(t *testing.T, data map[string]interface{}) {
+			validate: func(t *testing.T, data map[string]any) {
 				if data["name"] != "test" {
 					t.Errorf("Expected name=test, got %v", data["name"])
 				}
@@ -54,8 +54,8 @@ func TestLoadJSON(t *testing.T) {
 				}
 			}`,
 			expectErr: false,
-			validate: func(t *testing.T, data map[string]interface{}) {
-				user, ok := data["user"].(map[string]interface{})
+			validate: func(t *testing.T, data map[string]any) {
+				user, ok := data["user"].(map[string]any)
 				if !ok {
 					t.Error("Expected user to be a map")
 					return
@@ -72,8 +72,8 @@ func TestLoadJSON(t *testing.T) {
 				"names": ["a", "b", "c"]
 			}`,
 			expectErr: false,
-			validate: func(t *testing.T, data map[string]interface{}) {
-				items, ok := data["items"].([]interface{})
+			validate: func(t *testing.T, data map[string]any) {
+				items, ok := data["items"].([]any)
 				if !ok {
 					t.Error("Expected items to be an array")
 					return
@@ -93,7 +93,7 @@ func TestLoadJSON(t *testing.T) {
 			name:      "empty JSON object",
 			content:   `{}`,
 			expectErr: false,
-			validate: func(t *testing.T, data map[string]interface{}) {
+			validate: func(t *testing.T, data map[string]any) {
 				if len(data) != 0 {
 					t.Errorf("Expected empty map, got %d items", len(data))
 				}
@@ -144,12 +144,12 @@ func TestSaveJSON(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		data      map[string]interface{}
+		data      map[string]any
 		expectErr bool
 	}{
 		{
 			name: "simple data",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":  "test",
 				"count": float64(42),
 			},
@@ -157,12 +157,12 @@ func TestSaveJSON(t *testing.T) {
 		},
 		{
 			name: "nested data",
-			data: map[string]interface{}{
-				"user": map[string]interface{}{
+			data: map[string]any{
+				"user": map[string]any{
 					"name": "Alice",
 					"age":  float64(30),
 				},
-				"settings": map[string]interface{}{
+				"settings": map[string]any{
 					"theme": "dark",
 				},
 			},
@@ -170,15 +170,15 @@ func TestSaveJSON(t *testing.T) {
 		},
 		{
 			name: "with arrays",
-			data: map[string]interface{}{
-				"items": []interface{}{float64(1), float64(2), float64(3)},
-				"names": []interface{}{"a", "b", "c"},
+			data: map[string]any{
+				"items": []any{float64(1), float64(2), float64(3)},
+				"names": []any{"a", "b", "c"},
 			},
 			expectErr: false,
 		},
 		{
 			name:      "empty data",
-			data:      map[string]interface{}{},
+			data:      map[string]any{},
 			expectErr: false,
 		},
 	}
@@ -218,7 +218,7 @@ func TestSaveJSON(t *testing.T) {
 
 func TestSaveJSON_InvalidPath(t *testing.T) {
 	util := NewJSONUtil()
-	data := map[string]interface{}{"test": "value"}
+	data := map[string]any{"test": "value"}
 	err := util.SaveJSON("/invalid/path/to/file.json", data)
 	if err == nil {
 		t.Error("Expected error when saving to invalid path")
@@ -230,37 +230,37 @@ func TestDeepCopy(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data map[string]interface{}
+		data map[string]any
 	}{
 		{
 			name: "simple data",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":  "test",
 				"count": float64(42),
 			},
 		},
 		{
 			name: "nested data",
-			data: map[string]interface{}{
-				"user": map[string]interface{}{
+			data: map[string]any{
+				"user": map[string]any{
 					"name": "Alice",
 					"age":  float64(30),
 				},
-				"settings": map[string]interface{}{
+				"settings": map[string]any{
 					"theme": "dark",
 				},
 			},
 		},
 		{
 			name: "with arrays",
-			data: map[string]interface{}{
-				"items": []interface{}{float64(1), float64(2), float64(3)},
-				"names": []interface{}{"a", "b", "c"},
+			data: map[string]any{
+				"items": []any{float64(1), float64(2), float64(3)},
+				"names": []any{"a", "b", "c"},
 			},
 		},
 		{
 			name: "empty data",
-			data: map[string]interface{}{},
+			data: map[string]any{},
 		},
 	}
 
@@ -292,52 +292,52 @@ func TestCompareJSON(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		a        interface{}
-		b        interface{}
+		a        any
+		b        any
 		expected bool
 	}{
 		{
 			name:     "identical simple objects",
-			a:        map[string]interface{}{"name": "test", "count": float64(42)},
-			b:        map[string]interface{}{"name": "test", "count": float64(42)},
+			a:        map[string]any{"name": "test", "count": float64(42)},
+			b:        map[string]any{"name": "test", "count": float64(42)},
 			expected: true,
 		},
 		{
 			name:     "different simple objects",
-			a:        map[string]interface{}{"name": "test1"},
-			b:        map[string]interface{}{"name": "test2"},
+			a:        map[string]any{"name": "test1"},
+			b:        map[string]any{"name": "test2"},
 			expected: false,
 		},
 		{
 			name: "identical nested objects",
-			a: map[string]interface{}{
-				"user": map[string]interface{}{"name": "Alice"},
+			a: map[string]any{
+				"user": map[string]any{"name": "Alice"},
 			},
-			b: map[string]interface{}{
-				"user": map[string]interface{}{"name": "Alice"},
+			b: map[string]any{
+				"user": map[string]any{"name": "Alice"},
 			},
 			expected: true,
 		},
 		{
 			name: "different nested objects",
-			a: map[string]interface{}{
-				"user": map[string]interface{}{"name": "Alice"},
+			a: map[string]any{
+				"user": map[string]any{"name": "Alice"},
 			},
-			b: map[string]interface{}{
-				"user": map[string]interface{}{"name": "Bob"},
+			b: map[string]any{
+				"user": map[string]any{"name": "Bob"},
 			},
 			expected: false,
 		},
 		{
 			name:     "identical arrays",
-			a:        []interface{}{float64(1), float64(2), float64(3)},
-			b:        []interface{}{float64(1), float64(2), float64(3)},
+			a:        []any{float64(1), float64(2), float64(3)},
+			b:        []any{float64(1), float64(2), float64(3)},
 			expected: true,
 		},
 		{
 			name:     "different arrays",
-			a:        []interface{}{float64(1), float64(2), float64(3)},
-			b:        []interface{}{float64(1), float64(2), float64(4)},
+			a:        []any{float64(1), float64(2), float64(3)},
+			b:        []any{float64(1), float64(2), float64(4)},
 			expected: false,
 		},
 		{
@@ -366,8 +366,8 @@ func TestCompareJSON(t *testing.T) {
 		},
 		{
 			name:     "empty objects",
-			a:        map[string]interface{}{},
-			b:        map[string]interface{}{},
+			a:        map[string]any{},
+			b:        map[string]any{},
 			expected: true,
 		},
 	}
@@ -385,10 +385,10 @@ func TestCompareJSON(t *testing.T) {
 func TestGetValue(t *testing.T) {
 	util := NewJSONUtil()
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":  "test",
 		"count": float64(42),
-		"user": map[string]interface{}{
+		"user": map[string]any{
 			"name": "Alice",
 		},
 	}
@@ -397,7 +397,7 @@ func TestGetValue(t *testing.T) {
 		name      string
 		path      string
 		expectOk  bool
-		expectVal interface{}
+		expectVal any
 	}{
 		{
 			name:      "existing top-level string",
@@ -437,7 +437,7 @@ func TestSetValue(t *testing.T) {
 	tests := []struct {
 		name  string
 		path  string
-		value interface{}
+		value any
 	}{
 		{
 			name:  "set string value",
@@ -452,20 +452,20 @@ func TestSetValue(t *testing.T) {
 		{
 			name: "set object value",
 			path: "user",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"name": "Alice",
 			},
 		},
 		{
 			name:  "set array value",
 			path:  "items",
-			value: []interface{}{1, 2, 3},
+			value: []any{1, 2, 3},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := map[string]interface{}{}
+			data := map[string]any{}
 			util.SetValue(data, tt.path, tt.value)
 
 			val, ok := data[tt.path]
@@ -491,19 +491,19 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir) //nolint:errcheck // Cleanup, error not critical
 
-	original := map[string]interface{}{
-		"app": map[string]interface{}{
+	original := map[string]any{
+		"app": map[string]any{
 			"name":        "Jta",
 			"description": "AI-powered JSON translation tool",
 			"version":     "1.0.0",
 		},
-		"settings": map[string]interface{}{
+		"settings": map[string]any{
 			"language": "en",
 			"theme":    "dark",
 		},
-		"items": []interface{}{
-			map[string]interface{}{"id": float64(1), "name": "Item 1"},
-			map[string]interface{}{"id": float64(2), "name": "Item 2"},
+		"items": []any{
+			map[string]any{"id": float64(1), "name": "Item 1"},
+			map[string]any{"id": float64(2), "name": "Item 2"},
 		},
 	}
 
@@ -528,10 +528,10 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 }
 
 // deepEqual performs deep comparison of two values
-func deepEqual(a, b interface{}) bool {
+func deepEqual(a, b any) bool {
 	switch va := a.(type) {
-	case map[string]interface{}:
-		vb, ok := b.(map[string]interface{})
+	case map[string]any:
+		vb, ok := b.(map[string]any)
 		if !ok {
 			return false
 		}
@@ -544,8 +544,8 @@ func deepEqual(a, b interface{}) bool {
 			}
 		}
 		return true
-	case []interface{}:
-		vb, ok := b.([]interface{})
+	case []any:
+		vb, ok := b.([]any)
 		if !ok {
 			return false
 		}
