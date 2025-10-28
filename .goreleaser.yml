@@ -150,6 +150,10 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
     dockerfile: Dockerfile
+    extra_files:
+      - go.mod
+      - go.sum
+      - examples
     skip_push: auto
 
   - image_templates:
@@ -165,6 +169,10 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
     dockerfile: Dockerfile
+    extra_files:
+      - go.mod
+      - go.sum
+      - examples
     skip_push: auto
 
 docker_manifests:
