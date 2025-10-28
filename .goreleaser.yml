@@ -92,9 +92,7 @@ release:
   header: |
     ## Jta {{ .Tag }} Release
 
-    {{ if .IsLatest }}
-    This is the latest stable release of Jta.
-    {{ end }}
+    Thank you for using Jta - AI-powered Agentic JSON Translation tool!
 
     ### Installation
 
