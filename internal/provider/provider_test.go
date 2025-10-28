@@ -258,3 +258,166 @@ func TestCompletionResponse(t *testing.T) {
 		t.Errorf("Usage.TotalTokens = %d, want 150", resp.Usage.TotalTokens)
 	}
 }
+
+func TestGetDefaultModel(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerType ProviderType
+		expected     string
+	}{
+		{"openai default", ProviderTypeOpenAI, "gpt-5"},
+		{"anthropic default", ProviderTypeAnthropic, "claude-sonnet-4-5"},
+		{"gemini default", ProviderTypeGemini, "gemini-2.5-flash"},
+		{"unknown default", ProviderType("unknown"), ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetDefaultModel(tt.providerType)
+			if result != tt.expected {
+				t.Errorf("GetDefaultModel(%v) = %q, want %q", tt.providerType, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetContextWindowSize(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerType ProviderType
+		expected     int
+	}{
+		{"openai context", ProviderTypeOpenAI, 128000},
+		{"anthropic context", ProviderTypeAnthropic, 200000},
+		{"gemini context", ProviderTypeGemini, 1048576},
+		{"unknown provider", ProviderType("unknown"), 100000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetContextWindowSize(tt.providerType)
+			if result != tt.expected {
+				t.Errorf("GetContextWindowSize(%v) = %d, want %d", tt.providerType, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetSupportedModels(t *testing.T) {
+	tests := []struct {
+		name         string
+		providerType ProviderType
+		minExpected  int
+	}{
+		{"openai models", ProviderTypeOpenAI, 3},
+		{"anthropic models", ProviderTypeAnthropic, 3},
+		{"gemini models", ProviderTypeGemini, 2},
+		{"unknown provider", ProviderType("unknown"), 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetSupportedModels(tt.providerType)
+			if len(result) < tt.minExpected {
+				t.Errorf("GetSupportedModels(%v) returned %d models, want at least %d", tt.providerType, len(result), tt.minExpected)
+			}
+		})
+	}
+}
+
+func TestMockProviderName(t *testing.T) {
+	provider := NewMockProvider("test-model")
+	name := provider.Name()
+	if name != "mock" {
+		t.Errorf("Name() = %q, want %q", name, "mock")
+	}
+}
+
+func TestMockProviderValidateConfig(t *testing.T) {
+	provider := NewMockProvider("test-model")
+	err := provider.ValidateConfig()
+	if err != nil {
+		t.Errorf("ValidateConfig() = %v, want nil", err)
+	}
+}
+
+func TestProviderTypes(t *testing.T) {
+	// Test that provider type constants are defined
+	types := []ProviderType{
+		ProviderTypeOpenAI,
+		ProviderTypeAnthropic,
+		ProviderTypeGemini,
+	}
+
+	expectedValues := []string{
+		"openai",
+		"anthropic",
+		"gemini",
+	}
+
+	for i, providerType := range types {
+		if string(providerType) != expectedValues[i] {
+			t.Errorf("ProviderType[%d] = %q, want %q", i, providerType, expectedValues[i])
+		}
+	}
+}
+
+func TestProviderConfig(t *testing.T) {
+	config := &ProviderConfig{
+		Type:   ProviderTypeOpenAI,
+		Model:  "gpt-4",
+		APIKey: "test-key",
+	}
+
+	if config.Type != ProviderTypeOpenAI {
+		t.Errorf("Type = %v, want %v", config.Type, ProviderTypeOpenAI)
+	}
+	if config.Model != "gpt-4" {
+		t.Errorf("Model = %s, want gpt-4", config.Model)
+	}
+	if config.APIKey != "test-key" {
+		t.Errorf("APIKey = %s, want test-key", config.APIKey)
+	}
+}
+
+func TestNewProviderWithEmptyModel(t *testing.T) {
+	ctx := context.Background()
+	config := &ProviderConfig{
+		Type:   ProviderTypeOpenAI,
+		Model:  "", // Empty model should use default
+		APIKey: "test-key",
+	}
+
+	provider, err := NewProvider(ctx, config)
+	if err != nil {
+		t.Fatalf("NewProvider() with empty model error = %v, want nil", err)
+	}
+
+	if provider == nil {
+		t.Fatal("NewProvider() returned nil provider")
+	}
+
+	// Should have default model
+	modelName := provider.GetModelName()
+	if modelName == "" {
+		t.Error("GetModelName() returned empty string, should have default model")
+	}
+}
+
+func TestUsageStruct(t *testing.T) {
+	usage := Usage{
+		PromptTokens:     100,
+		CompletionTokens: 50,
+		TotalTokens:      150,
+	}
+
+	if usage.PromptTokens != 100 {
+		t.Errorf("PromptTokens = %d, want 100", usage.PromptTokens)
+	}
+	if usage.CompletionTokens != 50 {
+		t.Errorf("CompletionTokens = %d, want 50", usage.CompletionTokens)
+	}
+	if usage.TotalTokens != 150 {
+		t.Errorf("TotalTokens = %d, want 150", usage.TotalTokens)
+	}
+}
