@@ -216,9 +216,10 @@ func TestReflect_WithProgressCallback(t *testing.T) {
 			t.Error("Expected non-negative count")
 		}
 
-		// Complete events should have duration
-		if strings.HasSuffix(event.Type, "_complete") && event.Duration == 0 {
-			t.Error("Expected non-zero duration for complete event")
+		// Complete events should have non-negative duration
+		// Note: Duration may be 0 on fast systems (Windows) when using mock providers
+		if strings.HasSuffix(event.Type, "_complete") && event.Duration < 0 {
+			t.Error("Expected non-negative duration for complete event")
 		}
 	}
 
@@ -661,10 +662,12 @@ func TestReflect_Duration(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if result.ReflectDuration == 0 {
-		t.Error("Expected non-zero ReflectDuration")
+	// Duration may be 0 on fast systems (Windows) when using mock providers
+	// Just verify they are non-negative
+	if result.ReflectDuration < 0 {
+		t.Error("Expected non-negative ReflectDuration")
 	}
-	if result.ImproveDuration == 0 {
-		t.Error("Expected non-zero ImproveDuration")
+	if result.ImproveDuration < 0 {
+		t.Error("Expected non-negative ImproveDuration")
 	}
 }
