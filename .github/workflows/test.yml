@@ -29,7 +29,13 @@ jobs:
 
       - name: Run tests
         shell: bash
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # Skip race detector on Windows due to known issues with race detector on Windows
+            go test -v -coverprofile=coverage.out -covermode=atomic ./...
+          else
+            go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          fi
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
