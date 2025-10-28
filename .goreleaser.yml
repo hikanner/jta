@@ -135,58 +135,9 @@ brews:
     test: |
       system "#{bin}/jta", "--version"
 
-# Docker images (optional)
-dockers:
-  - image_templates:
-      - "ghcr.io/hikanner/jta:{{ .Version }}-amd64"
-      - "ghcr.io/hikanner/jta:latest-amd64"
-    use: buildx
-    goos: linux
-    goarch: amd64
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-    dockerfile: Dockerfile
-    extra_files:
-      - go.mod
-      - go.sum
-      - examples
-    skip_push: auto
-
-  - image_templates:
-      - "ghcr.io/hikanner/jta:{{ .Version }}-arm64"
-      - "ghcr.io/hikanner/jta:latest-arm64"
-    use: buildx
-    goos: linux
-    goarch: arm64
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-    dockerfile: Dockerfile
-    extra_files:
-      - go.mod
-      - go.sum
-      - examples
-    skip_push: auto
-
-docker_manifests:
-  - name_template: "ghcr.io/hikanner/jta:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/hikanner/jta:{{ .Version }}-amd64"
-      - "ghcr.io/hikanner/jta:{{ .Version }}-arm64"
-    skip_push: auto
-
-  - name_template: "ghcr.io/hikanner/jta:latest"
-    image_templates:
-      - "ghcr.io/hikanner/jta:latest-amd64"
-      - "ghcr.io/hikanner/jta:latest-arm64"
-    skip_push: auto
+# Docker images (disabled for v1.0.0)
+# Requires QEMU setup for multi-arch builds in CI
+# Will be re-enabled in future releases after proper configuration
 
 # Announcements (optional)
 announce:
