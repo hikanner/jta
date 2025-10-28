@@ -54,7 +54,7 @@ archives:
       - examples/*
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
   algorithm: sha256
 
 snapshot:
@@ -65,21 +65,21 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - 'typo'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "typo"
   groups:
-    - title: 'New Features'
+    - title: "New Features"
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
       order: 0
-    - title: 'Bug Fixes'
+    - title: "Bug Fixes"
       regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
       order: 1
-    - title: 'Performance Improvements'
+    - title: "Performance Improvements"
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
-    - title: 'Other Changes'
+    - title: "Other Changes"
       order: 999
 
 release:
@@ -121,12 +121,12 @@ brews:
   - repository:
       owner: hikanner
       name: homebrew-jta
+    directory: Formula
     name: jta
     homepage: https://github.com/hikanner/jta
     description: "AI-powered Agentic JSON Translation tool"
     license: MIT
     skip_upload: auto
-    folder: Formula
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
