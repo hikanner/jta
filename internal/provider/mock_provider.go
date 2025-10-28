@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // MockProvider is a mock implementation of AIProvider for testing
 type MockProvider struct {
+	mu            sync.Mutex
 	modelName     string
 	responses     []string
 	responseIndex int
@@ -28,22 +30,31 @@ func NewMockProvider(modelName string) *MockProvider {
 
 // AddResponse adds a canned response for the next Complete call
 func (m *MockProvider) AddResponse(response string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.responses = append(m.responses, response)
 }
 
 // SetError configures the provider to return an error
 func (m *MockProvider) SetError(errMsg string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.shouldError = true
 	m.errorMessage = errMsg
 }
 
 // GetCallCount returns the number of times Complete was called
 func (m *MockProvider) GetCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.callCount
 }
 
 // Complete implements AIProvider interface
 func (m *MockProvider) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.callCount++
 
 	if m.shouldError {
@@ -84,6 +95,8 @@ func (m *MockProvider) ValidateConfig() error {
 
 // Reset resets the mock provider state
 func (m *MockProvider) Reset() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.responseIndex = 0
 	m.shouldError = false
 	m.errorMessage = ""
