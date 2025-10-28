@@ -97,8 +97,8 @@ func TestError_WithContext(t *testing.T) {
 	}
 
 	// Add context
-	err.WithContext("key1", "value1")
-	err.WithContext("key2", 123)
+	_ = err.WithContext("key1", "value1")
+	_ = err.WithContext("key2", 123)
 
 	// Verify context
 	if val, ok := err.GetContext("key1"); !ok || val != "value1" {
