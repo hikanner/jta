@@ -31,8 +31,8 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            # Skip race detector on Windows due to known issues with race detector on Windows
-            go test -v -coverprofile=coverage.out -covermode=atomic ./...
+            # Skip race detector and coverage on Windows due to known issues
+            go test -v ./...
           else
             go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
           fi
