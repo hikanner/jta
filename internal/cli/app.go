@@ -169,7 +169,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 					fmt.Print("Continue? [Y/n] ")
 
 					var response string
-					fmt.Scanln(&response)
+					_, _ = fmt.Scanln(&response)
 					if strings.ToLower(response) == "n" {
 						a.ui.PrintWarning("Cancelled by user")
 						return fmt.Errorf("cancelled by user")
@@ -243,7 +243,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 				if !params.Yes {
 					fmt.Printf("Save terminology to %s/terminology.json? [Y/n] ", params.TerminologyDir)
 					var response string
-					fmt.Scanln(&response)
+					_, _ = fmt.Scanln(&response)
 					shouldSave = strings.ToLower(response) != "n"
 				}
 
@@ -304,7 +304,7 @@ func (a *App) Translate(ctx context.Context, params TranslateParams) error {
 					if !params.Yes {
 						fmt.Printf("Save terminology translation to %s/terminology.%s.json? [Y/n] ", params.TerminologyDir, params.TargetLang)
 						var response string
-						fmt.Scanln(&response)
+						_, _ = fmt.Scanln(&response)
 						shouldSave = strings.ToLower(response) != "n"
 					}
 

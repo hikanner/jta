@@ -9,9 +9,9 @@ import (
 
 var (
 	// Version information (will be set by GoReleaser)
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	version = "dev"     //nolint:unused // Will be set by build tools
+	commit  = "none"    //nolint:unused // Will be set by build tools
+	date    = "unknown" //nolint:unused // Will be set by build tools
 )
 
 func main() {

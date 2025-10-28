@@ -8,7 +8,7 @@ import (
 func TestProcessorCreation(t *testing.T) {
 	processor := NewProcessor()
 	if processor == nil {
-		t.Error("NewProcessor() returned nil")
+		t.Fatal("NewProcessor() returned nil")
 	}
 	if processor.lrmChar != "\u200E" {
 		t.Error("LRM character not set correctly")

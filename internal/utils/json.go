@@ -71,17 +71,67 @@ func (j *JSONUtil) DeepCopy(src map[string]interface{}) map[string]interface{} {
 
 // CompareJSON compares two JSON objects and returns if they are equal
 func (j *JSONUtil) CompareJSON(a, b interface{}) bool {
-	aJSON, err := sonic.Marshal(a)
-	if err != nil {
-		return false
-	}
+	return deepCompare(a, b)
+}
 
-	bJSON, err := sonic.Marshal(b)
-	if err != nil {
-		return false
+// deepCompare performs deep comparison of two values
+func deepCompare(a, b interface{}) bool {
+	switch va := a.(type) {
+	case map[string]interface{}:
+		vb, ok := b.(map[string]interface{})
+		if !ok {
+			return false
+		}
+		if len(va) != len(vb) {
+			return false
+		}
+		for k, v := range va {
+			bVal, exists := vb[k]
+			if !exists {
+				return false
+			}
+			if !deepCompare(v, bVal) {
+				return false
+			}
+		}
+		return true
+	case []interface{}:
+		vb, ok := b.([]interface{})
+		if !ok {
+			return false
+		}
+		if len(va) != len(vb) {
+			return false
+		}
+		for i := range va {
+			if !deepCompare(va[i], vb[i]) {
+				return false
+			}
+		}
+		return true
+	case float64:
+		vb, ok := b.(float64)
+		if !ok {
+			return false
+		}
+		return va == vb
+	case string:
+		vb, ok := b.(string)
+		if !ok {
+			return false
+		}
+		return va == vb
+	case bool:
+		vb, ok := b.(bool)
+		if !ok {
+			return false
+		}
+		return va == vb
+	case nil:
+		return b == nil
+	default:
+		return a == b
 	}
-
-	return string(aJSON) == string(bJSON)
 }
 
 // GetValue gets a value from nested JSON using dot notation path

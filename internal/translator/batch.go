@@ -342,10 +342,9 @@ func (bp *BatchProcessor) processSingleBatchOnce(
 		}
 
 		if original != "" {
-			if err := bp.formatProtector.Validate(original, translated); err != nil {
-				// Log warning but don't fail
-				// In production, might want to retry or fix automatically
-			}
+			// Validate format markers, but don't fail on validation errors
+			// In production, might want to log warnings or fix automatically
+			_ = bp.formatProtector.Validate(original, translated)
 		}
 	}
 

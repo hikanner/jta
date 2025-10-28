@@ -80,7 +80,9 @@ func TestJSONRepositoryLoadInvalidJSON(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "invalid.json")
 
 	// Write invalid JSON
-	os.WriteFile(testFile, []byte("{ invalid json }"), 0644)
+	if err := os.WriteFile(testFile, []byte("{ invalid json }"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
 
 	repo := NewJSONRepository()
 	_, err := repo.Load(testFile)
@@ -95,7 +97,9 @@ func TestJSONRepositoryExists(t *testing.T) {
 	nonExistingFile := filepath.Join(tmpDir, "non-existing.json")
 
 	// Create existing file
-	os.WriteFile(existingFile, []byte("{}"), 0644)
+	if err := os.WriteFile(existingFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
 
 	repo := NewJSONRepository()
 
@@ -281,7 +285,9 @@ func TestManagerTerminologyExists(t *testing.T) {
 	term := &domain.Terminology{
 		SourceLanguage: "en",
 	}
-	manager.SaveTerminology(existingDir, term)
+	if err := manager.SaveTerminology(existingDir, term); err != nil {
+		t.Fatalf("Failed to save terminology: %v", err)
+	}
 
 	if !manager.TerminologyExists(existingDir) {
 		t.Error("TerminologyExists() = false, want true for existing directory")

@@ -102,7 +102,7 @@ func TestMockProviderReset(t *testing.T) {
 	provider := NewMockProvider("test-model")
 
 	provider.AddResponse("Response 1")
-	provider.Complete(ctx, &CompletionRequest{Prompt: "Test"})
+	_, _ = provider.Complete(ctx, &CompletionRequest{Prompt: "Test"})
 
 	if provider.GetCallCount() != 1 {
 		t.Errorf("GetCallCount() = %d, want 1", provider.GetCallCount())

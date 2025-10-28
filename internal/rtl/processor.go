@@ -3,7 +3,6 @@ package rtl
 import (
 	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/hikanner/jta/internal/domain"
 )
@@ -55,21 +54,6 @@ func (p *Processor) ProcessText(text string, targetLang string) string {
 func (p *Processor) addDirectionalMarks(text string) string {
 	result := text
 
-	// Create a map to track protected regions (URLs and emails)
-	protectedRanges := make([]struct{ start, end int }, 0)
-
-	// Find and protect URLs
-	urlMatches := p.urlPattern.FindAllStringIndex(text, -1)
-	for _, match := range urlMatches {
-		protectedRanges = append(protectedRanges, struct{ start, end int }{match[0], match[1]})
-	}
-
-	// Find and protect emails
-	emailMatches := p.emailPattern.FindAllStringIndex(text, -1)
-	for _, match := range emailMatches {
-		protectedRanges = append(protectedRanges, struct{ start, end int }{match[0], match[1]})
-	}
-
 	// Wrap URLs with LRM marks
 	result = p.urlPattern.ReplaceAllStringFunc(result, func(match string) string {
 		return p.lrmChar + match + p.lrmChar
@@ -81,34 +65,6 @@ func (p *Processor) addDirectionalMarks(text string) string {
 	})
 
 	return result
-}
-
-// isStandaloneLatinWord checks if a Latin word is standalone
-func (p *Processor) isStandaloneLatinWord(text, word string) bool {
-	// Simple heuristic: check if word is surrounded by spaces or punctuation
-	idx := strings.Index(text, word)
-	if idx == -1 {
-		return false
-	}
-
-	// Check character before
-	if idx > 0 {
-		before := rune(text[idx-1])
-		if !unicode.IsSpace(before) && !unicode.IsPunct(before) {
-			return false
-		}
-	}
-
-	// Check character after
-	endIdx := idx + len(word)
-	if endIdx < len(text) {
-		after := rune(text[endIdx])
-		if !unicode.IsSpace(after) && !unicode.IsPunct(after) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // convertPunctuation converts LTR punctuation to RTL equivalents

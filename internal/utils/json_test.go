@@ -21,7 +21,7 @@ func TestLoadJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // Cleanup, error not critical
 
 	tests := []struct {
 		name      string
@@ -140,7 +140,7 @@ func TestSaveJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // Cleanup, error not critical
 
 	tests := []struct {
 		name      string
@@ -489,7 +489,7 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // Cleanup, error not critical
 
 	original := map[string]interface{}{
 		"app": map[string]interface{}{
