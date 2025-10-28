@@ -4,8 +4,9 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Test Coverage](https://img.shields.io/badge/coverage-34.2%25-yellow)](coverage.out)
+[![Test Coverage](https://img.shields.io/badge/coverage-51.9%25-brightgreen)](coverage.out)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](https://goreportcard.com/)
+[![Release](https://img.shields.io/github/v/release/hikanner/jta)](https://github.com/hikanner/jta/releases)
 
 > AI-powered Agentic JSON Translation tool with intelligent quality optimization
 
@@ -69,6 +70,21 @@ Automatically preserves:
 - **Gemini**: All Gemini models including Gemini 2.5 Flash, Gemini 2.5 Pro, etc.
 
 ## 📦 Installation
+
+### Download Binary (Recommended)
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/hikanner/jta/releases/latest):
+
+- **macOS**: `jta-darwin-amd64` or `jta-darwin-arm64` (Apple Silicon)
+- **Linux**: `jta-linux-amd64` or `jta-linux-arm64`
+- **Windows**: `jta-windows-amd64.exe`
+
+```bash
+# macOS/Linux example
+curl -L https://github.com/hikanner/jta/releases/latest/download/jta-darwin-arm64 -o jta
+chmod +x jta
+sudo mv jta /usr/local/bin/
+```
 
 ### Using Go Install
 
