@@ -4,8 +4,10 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Test Coverage](https://img.shields.io/badge/coverage-34.2%25-yellow)](coverage.out)
+[![Test Coverage](https://img.shields.io/badge/coverage-51.9%25-brightgreen)](coverage.out)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](https://goreportcard.com/)
+[![Release](https://img.shields.io/github/v/release/hikanner/jta)](https://github.com/hikanner/jta/releases)
+[![Homebrew](https://img.shields.io/badge/homebrew-jta-orange)](https://github.com/hikanner/homebrew-jta)
 
 > AI 驱动的智能体式 JSON 翻译工具，具备智能质量优化功能
 
@@ -70,6 +72,47 @@ Jta 是一个生产级的命令行工具，使用 AI 翻译 JSON 国际化文件
 
 ## 📦 安装
 
+### Homebrew（macOS/Linux）- 推荐
+
+在 macOS 或 Linux 上安装 Jta 最简单的方法：
+
+```bash
+# 添加 tap
+brew tap hikanner/jta
+
+# 安装 Jta
+brew install jta
+
+# 验证安装
+jta --version
+```
+
+**升级：**
+```bash
+brew upgrade jta
+```
+
+**卸载：**
+```bash
+brew uninstall jta
+brew untap hikanner/jta
+```
+
+### 下载二进制文件
+
+从 [GitHub Releases](https://github.com/hikanner/jta/releases/latest) 下载适合您平台的最新版本：
+
+- **macOS**：`jta-darwin-amd64` 或 `jta-darwin-arm64`（Apple Silicon）
+- **Linux**：`jta-linux-amd64` 或 `jta-linux-arm64`
+- **Windows**：`jta-windows-amd64.exe`
+
+```bash
+# macOS/Linux 示例
+curl -L https://github.com/hikanner/jta/releases/latest/download/jta-darwin-arm64 -o jta
+chmod +x jta
+sudo mv jta /usr/local/bin/
+```
+
 ### 使用 Go Install
 
 ```bash
@@ -85,6 +128,17 @@ go build -o jta cmd/jta/main.go
 ```
 
 ## 🚀 快速开始
+
+### 安装
+
+```bash
+# 通过 Homebrew 安装（macOS/Linux 推荐）
+brew tap hikanner/jta
+brew install jta
+
+# 或从 GitHub Releases 下载二进制文件
+# 详见安装部分
+```
 
 ### 查看支持的语言
 
@@ -668,7 +722,18 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Install Jta
-        run: go install github.com/hikanner/jta/cmd/jta@latest
+        run: |
+          # 方式 1：使用 Homebrew（Linux）
+          brew tap hikanner/jta
+          brew install jta
+          
+          # 方式 2：使用 Go
+          # go install github.com/hikanner/jta/cmd/jta@latest
+          
+          # 方式 3：下载二进制文件
+          # curl -L https://github.com/hikanner/jta/releases/latest/download/jta-linux-amd64 -o jta
+          # chmod +x jta
+          # sudo mv jta /usr/local/bin/
       
       - name: Translate
         env:

@@ -7,6 +7,7 @@
 [![Test Coverage](https://img.shields.io/badge/coverage-51.9%25-brightgreen)](coverage.out)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](https://goreportcard.com/)
 [![Release](https://img.shields.io/github/v/release/hikanner/jta)](https://github.com/hikanner/jta/releases)
+[![Homebrew](https://img.shields.io/badge/homebrew-jta-orange)](https://github.com/hikanner/homebrew-jta)
 
 > AI-powered Agentic JSON Translation tool with intelligent quality optimization
 
@@ -71,7 +72,33 @@ Automatically preserves:
 
 ## 📦 Installation
 
-### Download Binary (Recommended)
+### Homebrew (macOS/Linux) - Recommended
+
+The easiest way to install Jta on macOS or Linux:
+
+```bash
+# Add the tap
+brew tap hikanner/jta
+
+# Install Jta
+brew install jta
+
+# Verify installation
+jta --version
+```
+
+**Upgrade:**
+```bash
+brew upgrade jta
+```
+
+**Uninstall:**
+```bash
+brew uninstall jta
+brew untap hikanner/jta
+```
+
+### Download Binary
 
 Download the latest release for your platform from [GitHub Releases](https://github.com/hikanner/jta/releases/latest):
 
@@ -101,6 +128,17 @@ go build -o jta cmd/jta/main.go
 ```
 
 ## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Install via Homebrew (recommended for macOS/Linux)
+brew tap hikanner/jta
+brew install jta
+
+# Or download binary from GitHub Releases
+# See Installation section for details
+```
 
 ### View Supported Languages
 
@@ -684,7 +722,18 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Install Jta
-        run: go install github.com/hikanner/jta/cmd/jta@latest
+        run: |
+          # Option 1: Using Homebrew (Linux)
+          brew tap hikanner/jta
+          brew install jta
+          
+          # Option 2: Using Go
+          # go install github.com/hikanner/jta/cmd/jta@latest
+          
+          # Option 3: Download binary
+          # curl -L https://github.com/hikanner/jta/releases/latest/download/jta-linux-amd64 -o jta
+          # chmod +x jta
+          # sudo mv jta /usr/local/bin/
       
       - name: Translate
         env:
