@@ -261,3 +261,237 @@ func getKeys(m map[string]any) []string {
 	}
 	return keys
 }
+
+// Test BuildKeyPath
+func TestFilter_BuildKeyPath(t *testing.T) {
+	filter := NewFilter()
+	
+	tests := []struct {
+		name     string
+		parts    []string
+		expected string
+	}{
+		{
+			name:     "single part",
+			parts:    []string{"settings"},
+			expected: "settings",
+		},
+		{
+			name:     "two parts",
+			parts:    []string{"settings", "title"},
+			expected: "settings.title",
+		},
+		{
+			name:     "three parts",
+			parts:    []string{"settings", "theme", "dark"},
+			expected: "settings.theme.dark",
+		},
+		{
+			name:     "empty parts",
+			parts:    []string{},
+			expected: "",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filter.BuildKeyPath(tt.parts)
+			if result != tt.expected {
+				t.Errorf("BuildKeyPath() = %s, want %s", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test MatchMultiple
+func TestMatcher_MatchMultiple(t *testing.T) {
+	matcher := NewMatcher()
+	filter := NewFilter()
+	
+	patterns, err := filter.ParsePatterns("settings.title,user.name,app.*")
+	if err != nil {
+		t.Fatalf("ParsePatterns() error = %v", err)
+	}
+	
+	tests := []struct {
+		name     string
+		keyPath  string
+		expected bool
+	}{
+		{
+			name:     "matches first pattern",
+			keyPath:  "settings.title",
+			expected: true,
+		},
+		{
+			name:     "matches second pattern",
+			keyPath:  "user.name",
+			expected: true,
+		},
+		{
+			name:     "matches wildcard pattern",
+			keyPath:  "app.version",
+			expected: true,
+		},
+		{
+			name:     "no match",
+			keyPath:  "other.key",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matcher.MatchMultiple(tt.keyPath, patterns)
+			if result != tt.expected {
+				t.Errorf("MatchMultiple() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test matchSingleLevel
+func TestMatcher_MatchSingleLevel(t *testing.T) {
+	matcher := NewMatcher()
+	
+	pattern := &KeyPattern{
+		Pattern: "settings.*",
+		Type:    PatternTypeSingleLevel,
+		Parts:   []string{"settings", "*"},
+	}
+	
+	tests := []struct {
+		name     string
+		keyPath  string
+		expected bool
+	}{
+		{
+			name:     "matches single level",
+			keyPath:  "settings.title",
+			expected: true,
+		},
+		{
+			name:     "does not match nested",
+			keyPath:  "settings.theme.dark",
+			expected: false,
+		},
+		{
+			name:     "does not match different prefix",
+			keyPath:  "user.title",
+			expected: false,
+		},
+		{
+			name:     "does not match shorter path",
+			keyPath:  "settings",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matcher.matchSingleLevel(tt.keyPath, pattern)
+			if result != tt.expected {
+				t.Errorf("matchSingleLevel() = %v, want %v for key %s", result, tt.expected, tt.keyPath)
+			}
+		})
+	}
+}
+
+// Test matchRecursive
+func TestMatcher_MatchRecursive(t *testing.T) {
+	matcher := NewMatcher()
+	
+	pattern := &KeyPattern{
+		Pattern: "settings.**",
+		Type:    PatternTypeRecursive,
+		Parts:   []string{"settings", "**"},
+	}
+	
+	tests := []struct {
+		name     string
+		keyPath  string
+		expected bool
+	}{
+		{
+			name:     "matches single level",
+			keyPath:  "settings.title",
+			expected: true,
+		},
+		{
+			name:     "matches nested levels",
+			keyPath:  "settings.theme.dark",
+			expected: true,
+		},
+		{
+			name:     "matches deep nested",
+			keyPath:  "settings.theme.colors.primary.main",
+			expected: true,
+		},
+		{
+			name:     "does not match different prefix",
+			keyPath:  "user.title",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matcher.matchRecursive(tt.keyPath, pattern)
+			if result != tt.expected {
+				t.Errorf("matchRecursive() = %v, want %v for key %s", result, tt.expected, tt.keyPath)
+			}
+		})
+	}
+}
+
+// Test matchWildcard
+func TestMatcher_MatchWildcard(t *testing.T) {
+	matcher := NewMatcher()
+	
+	pattern := &KeyPattern{
+		Pattern: "*.title",
+		Type:    PatternTypeWildcard,
+		Parts:   []string{"*", "title"},
+	}
+	
+	tests := []struct {
+		name     string
+		keyPath  string
+		expected bool
+	}{
+		{
+			name:     "matches with settings prefix",
+			keyPath:  "settings.title",
+			expected: true,
+		},
+		{
+			name:     "matches with user prefix",
+			keyPath:  "user.title",
+			expected: true,
+		},
+		{
+			name:     "matches with app prefix",
+			keyPath:  "app.title",
+			expected: true,
+		},
+		{
+			name:     "does not match different suffix",
+			keyPath:  "settings.name",
+			expected: false,
+		},
+		{
+			name:     "does not match nested",
+			keyPath:  "settings.theme.title",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matcher.matchWildcard(tt.keyPath, pattern)
+			if result != tt.expected {
+				t.Errorf("matchWildcard() = %v, want %v for key %s", result, tt.expected, tt.keyPath)
+			}
+		})
+	}
+}

@@ -421,3 +421,124 @@ func TestUsageStruct(t *testing.T) {
 		t.Errorf("TotalTokens = %d, want 150", usage.TotalTokens)
 	}
 }
+
+// Additional constructor error tests
+func TestNewOpenAIProvider_EmptyAPIKey(t *testing.T) {
+	_, err := NewOpenAIProvider("", "gpt-4")
+	if err == nil {
+		t.Error("NewOpenAIProvider() with empty API key should return error")
+	}
+}
+
+
+
+func TestOpenAIProvider_Name(t *testing.T) {
+	provider, err := NewOpenAIProvider("sk-test", "gpt-4")
+	if err != nil {
+		t.Fatalf("NewOpenAIProvider() error = %v", err)
+	}
+	if provider.Name() != "openai" {
+		t.Errorf("Name() = %s, want openai", provider.Name())
+	}
+}
+
+func TestAnthropicProvider_Name(t *testing.T) {
+	provider, err := NewAnthropicProvider("sk-ant-test", "claude-3-5-sonnet-20241022")
+	if err != nil {
+		t.Fatalf("NewAnthropicProvider() error = %v", err)
+	}
+	if provider.Name() != "anthropic" {
+		t.Errorf("Name() = %s, want anthropic", provider.Name())
+	}
+}
+
+func TestGeminiProvider_Name(t *testing.T) {
+	ctx := context.Background()
+	provider, err := NewGeminiProvider(ctx, "test-key", "gemini-1.5-pro")
+	if err != nil {
+		t.Fatalf("NewGeminiProvider() error = %v", err)
+	}
+	if provider.Name() != "gemini" {
+		t.Errorf("Name() = %s, want gemini", provider.Name())
+	}
+}
+
+func TestOpenAIProvider_ValidateConfig(t *testing.T) {
+	provider, err := NewOpenAIProvider("sk-test", "gpt-4")
+	if err != nil {
+		t.Fatalf("NewOpenAIProvider() error = %v", err)
+	}
+	if err := provider.ValidateConfig(); err != nil {
+		t.Errorf("ValidateConfig() error = %v, want nil", err)
+	}
+}
+
+func TestAnthropicProvider_ValidateConfig(t *testing.T) {
+	provider, err := NewAnthropicProvider("sk-ant-test", "claude-3-5-sonnet-20241022")
+	if err != nil {
+		t.Fatalf("NewAnthropicProvider() error = %v", err)
+	}
+	if err := provider.ValidateConfig(); err != nil {
+		t.Errorf("ValidateConfig() error = %v, want nil", err)
+	}
+}
+
+func TestGeminiProvider_ValidateConfig(t *testing.T) {
+	ctx := context.Background()
+	provider, err := NewGeminiProvider(ctx, "test-key", "gemini-1.5-pro")
+	if err != nil {
+		t.Fatalf("NewGeminiProvider() error = %v", err)
+	}
+	if err := provider.ValidateConfig(); err != nil {
+		t.Errorf("ValidateConfig() error = %v, want nil", err)
+	}
+}
+
+func TestGeminiProvider_Close(t *testing.T) {
+	ctx := context.Background()
+	provider, err := NewGeminiProvider(ctx, "test-key", "gemini-1.5-pro")
+	if err != nil {
+		t.Fatalf("NewGeminiProvider() error = %v", err)
+	}
+	if err := provider.Close(); err != nil {
+		t.Errorf("Close() error = %v, want nil", err)
+	}
+}
+
+func TestOpenAIProvider_GetModelName(t *testing.T) {
+	provider, err := NewOpenAIProvider("sk-test", "gpt-4-turbo")
+	if err != nil {
+		t.Fatalf("NewOpenAIProvider() error = %v", err)
+	}
+	
+	modelName := provider.GetModelName()
+	if modelName != "gpt-4-turbo" {
+		t.Errorf("GetModelName() = %s, want gpt-4-turbo", modelName)
+	}
+}
+
+func TestAnthropicProvider_GetModelName(t *testing.T) {
+	provider, err := NewAnthropicProvider("sk-test", "claude-3-opus")
+	if err != nil {
+		t.Fatalf("NewAnthropicProvider() error = %v", err)
+	}
+	
+	modelName := provider.GetModelName()
+	if modelName != "claude-3-opus" {
+		t.Errorf("GetModelName() = %s, want claude-3-opus", modelName)
+	}
+}
+
+func TestGeminiProvider_GetModelName(t *testing.T) {
+	ctx := context.Background()
+	provider, err := NewGeminiProvider(ctx, "test-key", "gemini-1.5-pro")
+	if err != nil {
+		t.Fatalf("NewGeminiProvider() error = %v", err)
+	}
+	defer provider.Close()
+	
+	modelName := provider.GetModelName()
+	if modelName != "gemini-1.5-pro" {
+		t.Errorf("GetModelName() = %s, want gemini-1.5-pro", modelName)
+	}
+}

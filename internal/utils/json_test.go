@@ -562,3 +562,127 @@ func deepEqual(a, b any) bool {
 		return a == b
 	}
 }
+
+func TestDeepCopy_ErrorCases(t *testing.T) {
+	util := NewJSONUtil()
+	
+	// Test with nil input - should handle gracefully
+	t.Run("nil input", func(t *testing.T) {
+		result := util.DeepCopy(nil)
+		if result != nil {
+			t.Errorf("DeepCopy(nil) = %v, want nil", result)
+		}
+	})
+	
+	// Test with complex nested structure
+	t.Run("deeply nested structure", func(t *testing.T) {
+		data := map[string]any{
+			"level1": map[string]any{
+				"level2": map[string]any{
+					"level3": map[string]any{
+						"value": "deep",
+						"array": []any{
+							map[string]any{"nested": "item"},
+						},
+					},
+				},
+			},
+		}
+		
+		copied := util.DeepCopy(data)
+		if copied == nil {
+			t.Fatal("DeepCopy returned nil for deeply nested structure")
+		}
+		
+		if !util.CompareJSON(data, copied) {
+			t.Error("Deeply nested copy does not match original")
+		}
+	})
+}
+
+func TestCompareJSON_EdgeCases(t *testing.T) {
+	util := NewJSONUtil()
+	
+	tests := []struct {
+		name     string
+		a        any
+		b        any
+		expected bool
+	}{
+		{
+			name:     "compare map with non-map",
+			a:        map[string]any{"key": "value"},
+			b:        "not a map",
+			expected: false,
+		},
+		{
+			name:     "compare array with non-array",
+			a:        []any{1, 2, 3},
+			b:        "not an array",
+			expected: false,
+		},
+		{
+			name:     "compare arrays with different lengths",
+			a:        []any{1, 2, 3},
+			b:        []any{1, 2},
+			expected: false,
+		},
+		{
+			name:     "compare maps with different lengths",
+			a:        map[string]any{"a": 1, "b": 2},
+			b:        map[string]any{"a": 1},
+			expected: false,
+		},
+		{
+			name:     "compare map with missing key in b",
+			a:        map[string]any{"a": 1, "b": 2},
+			b:        map[string]any{"a": 1, "c": 2},
+			expected: false,
+		},
+		{
+			name:     "compare booleans true",
+			a:        true,
+			b:        true,
+			expected: true,
+		},
+		{
+			name:     "compare booleans false",
+			a:        false,
+			b:        false,
+			expected: true,
+		},
+		{
+			name:     "compare different booleans",
+			a:        true,
+			b:        false,
+			expected: false,
+		},
+		{
+			name:     "compare nil values",
+			a:        nil,
+			b:        nil,
+			expected: true,
+		},
+		{
+			name:     "compare nil with non-nil",
+			a:        nil,
+			b:        "something",
+			expected: false,
+		},
+		{
+			name:     "compare float with string",
+			a:        float64(42),
+			b:        "42",
+			expected: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := util.CompareJSON(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("CompareJSON(%v, %v) = %v, expected %v", tt.a, tt.b, result, tt.expected)
+			}
+		})
+	}
+}

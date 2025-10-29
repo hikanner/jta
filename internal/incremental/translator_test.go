@@ -558,3 +558,43 @@ func TestCountKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestCountKeys_WithArrayPrimitives(t *testing.T) {
+	// Test array with primitive values (not maps)
+	data := map[string]any{
+		"items": []any{
+			"string1",
+			"string2",
+			42.0,
+			true,
+		},
+		"nested": map[string]any{
+			"values": []any{1.0, 2.0, 3.0},
+		},
+	}
+
+	count := countKeys(data)
+
+	// Should count: items array (4 primitives) + nested.values array (3 primitives) = 7
+	if count != 7 {
+		t.Errorf("countKeys() = %d, want 7", count)
+	}
+}
+
+func TestCountKeys_MixedArray(t *testing.T) {
+	// Test array with mixed map and primitive values
+	data := map[string]any{
+		"mixed": []any{
+			map[string]any{"key": "value"},
+			"primitive",
+			map[string]any{"another": "map"},
+		},
+	}
+
+	count := countKeys(data)
+
+	// Should count: 1 (key in first map) + 1 (primitive) + 1 (another in second map) = 3
+	if count != 3 {
+		t.Errorf("countKeys() = %d, want 3", count)
+	}
+}

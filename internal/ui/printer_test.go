@@ -329,3 +329,93 @@ func TestPrinter_FormatMethods(t *testing.T) {
 		}
 	}
 }
+
+func TestPrinter_PrintVerbose(t *testing.T) {
+	tests := []struct {
+		name    string
+		verbose bool
+		text    string
+	}{
+		{
+			name:    "verbose enabled",
+			verbose: true,
+			text:    "debug information",
+		},
+		{
+			name:    "verbose disabled",
+			verbose: false,
+			text:    "should not print",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			printer := &Printer{verbose: tt.verbose}
+			// Just call the function - output is to stdout
+			printer.PrintVerbose(tt.text)
+		})
+	}
+}
+
+func TestSpinner_NewSpinner(t *testing.T) {
+	spinner := NewSpinner("Loading...")
+	
+	if spinner == nil {
+		t.Fatal("NewSpinner() returned nil")
+	}
+	
+	if spinner.text != "Loading..." {
+		t.Errorf("Spinner text = %s, want Loading...", spinner.text)
+	}
+	
+	if len(spinner.frames) == 0 {
+		t.Error("Spinner frames should not be empty")
+	}
+	
+	if spinner.index != 0 {
+		t.Errorf("Spinner index = %d, want 0", spinner.index)
+	}
+}
+
+func TestSpinner_Next(t *testing.T) {
+	spinner := NewSpinner("Processing...")
+	
+	initialIndex := spinner.index
+	spinner.Next()
+	
+	if spinner.index != (initialIndex+1)%len(spinner.frames) {
+		t.Errorf("Spinner index after Next() = %d, expected %d", spinner.index, (initialIndex+1)%len(spinner.frames))
+	}
+	
+	// Test wrapping around
+	spinner.index = len(spinner.frames) - 1
+	spinner.Next()
+	
+	if spinner.index != 0 {
+		t.Errorf("Spinner index after wrap = %d, want 0", spinner.index)
+	}
+}
+
+func TestSpinner_Finish(t *testing.T) {
+	tests := []struct {
+		name    string
+		success bool
+	}{
+		{
+			name:    "finish with success",
+			success: true,
+		},
+		{
+			name:    "finish with failure",
+			success: false,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spinner := NewSpinner("Task")
+			// Just call the function - output is to stdout
+			spinner.Finish(tt.success)
+		})
+	}
+}

@@ -749,3 +749,460 @@ func TestDetector_DetectTerms_SmallFile(t *testing.T) {
 		t.Errorf("Expected at least 2 terms, got %d", len(terms))
 	}
 }
+
+// Tests for Manager
+func TestManager_DetectTerms_Simple(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+	mockProvider.AddResponse("```json\n" + `{
+		"preserveTerms": [
+			{"term": "API", "reason": "Technical term"}
+		],
+		"consistentTerms": [
+			{"term": "user", "reason": "Key concept"}
+		]
+	}` + "\n```")
+
+	manager := NewManager(mockProvider)
+
+	texts := []string{"The API for user management"}
+	terms, err := manager.DetectTerms(context.Background(), texts, "en")
+
+	if err != nil {
+		t.Fatalf("DetectTerms() error = %v", err)
+	}
+
+	if len(terms) < 2 {
+		t.Errorf("Expected at least 2 terms, got %d", len(terms))
+	}
+}
+
+func TestManager_TranslateTerms_Simple(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+	mockProvider.AddResponse("```json\n" + `{
+		"user": "用户",
+		"repository": "仓库"
+	}` + "\n```")
+
+	manager := NewManager(mockProvider)
+
+	terms := []string{"user", "repository"}
+
+	translations, err := manager.TranslateTerms(context.Background(), terms, "en", "zh")
+
+	if err != nil {
+		t.Fatalf("TranslateTerms() error = %v", err)
+	}
+
+	if len(translations) != 2 {
+		t.Errorf("Expected 2 translations, got %d", len(translations))
+	}
+
+	if translations["user"] != "用户" {
+		t.Errorf("Expected user -> 用户, got %s", translations["user"])
+	}
+
+	if translations["repository"] != "仓库" {
+		t.Errorf("Expected repository -> 仓库, got %s", translations["repository"])
+	}
+}
+
+func TestManager_LoadAndSaveTerminologyTranslation_Flow(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockProvider := provider.NewMockProvider("gpt-4")
+	manager := NewManager(mockProvider)
+
+	translation := &domain.TerminologyTranslation{
+		SourceLanguage: "en",
+		TargetLanguage: "zh",
+		Translations: map[string]string{
+			"user": "用户",
+			"API":  "API",
+		},
+	}
+
+	// Test Save
+	err := manager.SaveTerminologyTranslation(tmpDir, translation)
+	if err != nil {
+		t.Fatalf("SaveTerminologyTranslation() error = %v", err)
+	}
+
+	// Test Exists
+	exists := manager.TranslationExists(tmpDir, "zh")
+	if !exists {
+		t.Error("TranslationExists() = false, want true")
+	}
+
+	// Test Load
+	loaded, err := manager.LoadTerminologyTranslation(tmpDir, "zh")
+	if err != nil {
+		t.Fatalf("LoadTerminologyTranslation() error = %v", err)
+	}
+
+	if loaded.TargetLanguage != "zh" {
+		t.Errorf("TargetLanguage = %s, want zh", loaded.TargetLanguage)
+	}
+
+	if len(loaded.Translations) != 2 {
+		t.Errorf("len(Translations) = %d, want 2", len(loaded.Translations))
+	}
+}
+
+// Tests for TranslationRepository
+func TestTranslationRepository_SaveAndLoad_Flow(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo := NewTranslationRepository()
+
+	translation := &domain.TerminologyTranslation{
+		SourceLanguage: "en",
+		TargetLanguage: "zh",
+		Translations: map[string]string{
+			"hello": "你好",
+			"world": "世界",
+		},
+	}
+
+	// Test Save
+	err := repo.Save(tmpDir, translation)
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Test Exists
+	if !repo.Exists(tmpDir, "zh") {
+		t.Error("Exists() = false, want true after Save()")
+	}
+
+	// Test Load
+	loaded, err := repo.Load(tmpDir, "zh")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if loaded.SourceLanguage != "en" {
+		t.Errorf("SourceLanguage = %s, want en", loaded.SourceLanguage)
+	}
+
+	if loaded.TargetLanguage != "zh" {
+		t.Errorf("TargetLanguage = %s, want zh", loaded.TargetLanguage)
+	}
+
+	if len(loaded.Translations) != 2 {
+		t.Errorf("len(Translations) = %d, want 2", len(loaded.Translations))
+	}
+
+	if loaded.Translations["hello"] != "你好" {
+		t.Errorf("Translations[hello] = %s, want 你好", loaded.Translations["hello"])
+	}
+}
+
+func TestTranslationRepository_LoadNonExistent_Error(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo := NewTranslationRepository()
+
+	_, err := repo.Load(tmpDir, "fr")
+	if err == nil {
+		t.Error("Load() for non-existent file should return error")
+	}
+}
+
+func TestTranslationRepository_ExistsNonExistent_False(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo := NewTranslationRepository()
+
+	if repo.Exists(tmpDir, "de") {
+		t.Error("Exists() = true for non-existent file, want false")
+	}
+}
+
+// Tests for TermRepository
+func TestTermRepository_SaveAndLoad_Flow(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo := NewTermRepository()
+
+	terminology := &domain.Terminology{
+		SourceLanguage:  "en",
+		PreserveTerms:   []string{"GitHub", "API"},
+		ConsistentTerms: []string{"user", "commit"},
+	}
+
+	// Test Save
+	termFile := filepath.Join(tmpDir, "terminology.json")
+	err := repo.Save(termFile, terminology)
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Test Load
+	loaded, err := repo.Load(termFile)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if loaded.SourceLanguage != "en" {
+		t.Errorf("SourceLanguage = %s, want en", loaded.SourceLanguage)
+	}
+
+	if len(loaded.PreserveTerms) != 2 {
+		t.Errorf("len(PreserveTerms) = %d, want 2", len(loaded.PreserveTerms))
+	}
+
+	if len(loaded.ConsistentTerms) != 2 {
+		t.Errorf("len(ConsistentTerms) = %d, want 2", len(loaded.ConsistentTerms))
+	}
+}
+
+func TestTermRepository_LoadNonExistent_Error(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo := NewTermRepository()
+
+	nonExistentFile := filepath.Join(tmpDir, "nonexistent.json")
+	_, err := repo.Load(nonExistentFile)
+	if err == nil {
+		t.Error("Load() for non-existent file should return error")
+	}
+}
+
+// Test batchCandidates
+func TestDetector_BatchCandidates(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+	detector := NewDetector(mockProvider)
+
+	candidates := map[string]*CandidateWord{
+		"term1": {Word: "term1", Frequency: 5, Contexts: []string{"context1"}},
+		"term2": {Word: "term2", Frequency: 3, Contexts: []string{"context2"}},
+		"term3": {Word: "term3", Frequency: 7, Contexts: []string{"context3"}},
+		"term4": {Word: "term4", Frequency: 2, Contexts: []string{"context4"}},
+		"term5": {Word: "term5", Frequency: 4, Contexts: []string{"context5"}},
+	}
+
+	tests := []struct {
+		name          string
+		batchSize     int
+		expectedCount int
+	}{
+		{
+			name:          "batch size 2",
+			batchSize:     2,
+			expectedCount: 3, // 5 items / 2 = 3 batches (2+2+1)
+		},
+		{
+			name:          "batch size 3",
+			batchSize:     3,
+			expectedCount: 2, // 5 items / 3 = 2 batches (3+2)
+		},
+		{
+			name:          "batch size larger than items",
+			batchSize:     10,
+			expectedCount: 1,
+		},
+		{
+			name:          "batch size 1",
+			batchSize:     1,
+			expectedCount: 5, // each item in its own batch
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			batches := detector.batchCandidates(candidates, tt.batchSize)
+
+			if len(batches) != tt.expectedCount {
+				t.Errorf("batchCandidates() created %d batches, want %d", len(batches), tt.expectedCount)
+			}
+
+			// Verify all candidates are included
+			totalCandidates := 0
+			for _, batch := range batches {
+				totalCandidates += len(batch)
+			}
+			if totalCandidates != len(candidates) {
+				t.Errorf("Total candidates in batches = %d, want %d", totalCandidates, len(candidates))
+			}
+		})
+	}
+}
+
+// Test batchCandidates with empty input
+func TestDetector_BatchCandidates_Empty(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+	detector := NewDetector(mockProvider)
+
+	candidates := map[string]*CandidateWord{}
+	batches := detector.batchCandidates(candidates, 5)
+
+	if len(batches) != 0 {
+		t.Errorf("batchCandidates() with empty input created %d batches, want 0", len(batches))
+	}
+}
+
+// Test parseValidationResult
+func TestDetector_ParseValidationResult(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+	detector := NewDetector(mockProvider)
+
+	tests := []struct {
+		name        string
+		content     string
+		expectError bool
+		expectCount int
+		expectTypes map[string]domain.TermType
+	}{
+		{
+			name: "valid result with preserve terms",
+			content: "```json\n" + `[
+				{"term": "API", "is_term": true, "type": "preserve", "reason": "Technical term"},
+				{"term": "user", "is_term": true, "type": "consistent", "reason": "Key concept"}
+			]` + "\n```",
+			expectError: false,
+			expectCount: 2,
+			expectTypes: map[string]domain.TermType{
+				"API":  domain.TermTypePreserve,
+				"user": domain.TermTypeConsistent,
+			},
+		},
+		{
+			name: "result with non-terms filtered",
+			content: "```json\n" + `[
+				{"term": "API", "is_term": true, "type": "preserve", "reason": "Technical term"},
+				{"term": "the", "is_term": false, "type": "", "reason": "Common word"}
+			]` + "\n```",
+			expectError: false,
+			expectCount: 1,
+			expectTypes: map[string]domain.TermType{
+				"API": domain.TermTypePreserve,
+			},
+		},
+		{
+			name:        "empty result",
+			content:     "```json\n" + `[]` + "\n```",
+			expectError: false,
+			expectCount: 0,
+		},
+		{
+			name:        "invalid JSON",
+			content:     "not valid json",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			terms, err := detector.parseValidationResult(tt.content)
+
+			if tt.expectError && err == nil {
+				t.Error("parseValidationResult() expected error but got none")
+			}
+
+			if !tt.expectError && err != nil {
+				t.Errorf("parseValidationResult() unexpected error = %v", err)
+			}
+
+			if !tt.expectError {
+				if len(terms) != tt.expectCount {
+					t.Errorf("parseValidationResult() returned %d terms, want %d", len(terms), tt.expectCount)
+				}
+
+				for _, term := range terms {
+					if expectedType, ok := tt.expectTypes[term.Term]; ok {
+						if term.Type != expectedType {
+							t.Errorf("Term %s has type %v, want %v", term.Term, term.Type, expectedType)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// Test validateBatchWithLLM
+func TestDetector_ValidateBatchWithLLM(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+
+	// Mock LLM response
+	mockProvider.AddResponse("```json\n" + `[
+		{"term": "API", "is_term": true, "type": "preserve", "reason": "Technical term"},
+		{"term": "repository", "is_term": true, "type": "consistent", "reason": "Core concept"}
+	]` + "\n```")
+
+	detector := NewDetector(mockProvider)
+
+	batch := []*CandidateWord{
+		{Word: "API", Frequency: 10, Contexts: []string{"Use the API"}},
+		{Word: "repository", Frequency: 5, Contexts: []string{"GitHub repository"}},
+	}
+
+	terms, err := detector.validateBatchWithLLM(context.Background(), batch, "en")
+
+	if err != nil {
+		t.Fatalf("validateBatchWithLLM() error = %v", err)
+	}
+
+	if len(terms) != 2 {
+		t.Errorf("validateBatchWithLLM() returned %d terms, want 2", len(terms))
+	}
+
+	// Verify term types
+	foundPreserve := false
+	foundConsistent := false
+	for _, term := range terms {
+		if term.Term == "API" && term.Type == domain.TermTypePreserve {
+			foundPreserve = true
+		}
+		if term.Term == "repository" && term.Type == domain.TermTypeConsistent {
+			foundConsistent = true
+		}
+	}
+
+	if !foundPreserve {
+		t.Error("Expected to find API as preserve term")
+	}
+	if !foundConsistent {
+		t.Error("Expected to find repository as consistent term")
+	}
+}
+
+// Test validateWithLLM with single batch
+func TestDetector_ValidateWithLLM_SingleBatch(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+
+	// Mock LLM response
+	mockProvider.AddResponse("```json\n" + `[
+		{"term": "API", "is_term": true, "type": "preserve", "reason": "Technical term"}
+	]` + "\n```")
+
+	detector := NewDetector(mockProvider)
+
+	candidates := map[string]*CandidateWord{
+		"API": {Word: "API", Frequency: 10, Contexts: []string{"Use the API"}},
+	}
+
+	terms, err := detector.validateWithLLM(context.Background(), candidates, "en")
+
+	if err != nil {
+		t.Fatalf("validateWithLLM() error = %v", err)
+	}
+
+	if len(terms) != 1 {
+		t.Errorf("validateWithLLM() returned %d terms, want 1", len(terms))
+	}
+}
+
+// Test validateWithLLM with error handling
+func TestDetector_ValidateWithLLM_WithError(t *testing.T) {
+	mockProvider := provider.NewMockProvider("gpt-4")
+
+	// Set error to simulate API failure
+	mockProvider.SetError("API error")
+
+	detector := NewDetector(mockProvider)
+
+	candidates := map[string]*CandidateWord{
+		"API": {Word: "API", Frequency: 10, Contexts: []string{"Use the API"}},
+	}
+
+	_, err := detector.validateWithLLM(context.Background(), candidates, "en")
+
+	if err == nil {
+		t.Error("validateWithLLM() expected error but got none")
+	}
+}
