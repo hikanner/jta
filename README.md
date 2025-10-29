@@ -39,11 +39,11 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 
 ### 🤖 Agentic Translation with Self-Optimization
 
-- **True Agentic Reflection**: Following Andrew Ng's Translation Agent approach with two-step reflection mechanism
-- **LLM-Powered Quality Evaluation**: AI evaluates translations across 4 dimensions: accuracy, fluency, style, terminology
-- **Expert Suggestions**: LLM generates constructive criticism and improvement suggestions
-- **Iterative Improvement**: AI refines translations based on its own expert feedback
-- **Cost**: 3x API calls per batch (translate → reflect → improve) for maximum quality
+- **Agentic Reflection Mechanism**: AI acts as its own quality reviewer through a two-step process - first translating, then critically evaluating and refining its own work
+- **Multi-Dimensional Quality Evaluation**: The AI examines translations across 4 key dimensions: accuracy (no mistranslations), fluency (natural grammar), style (cultural appropriateness), and terminology (consistency)
+- **Self-Generated Improvements**: Rather than relying on predefined rules, the AI generates specific, contextual suggestions and applies them to produce better translations
+- **Iterative Refinement**: Each translation goes through translate → reflect → improve cycles, ensuring higher quality output
+- **Trade-off**: 3x API calls per batch for significantly improved translation quality
 
 ### 📚 Intelligent Terminology Management
 
@@ -579,7 +579,7 @@ sequenceDiagram
 
 ### 🔄 Agentic Reflection Mechanism
 
-Jta implements Andrew Ng's Translation Agent approach with a **true two-step reflection process**:
+Jta implements an **agentic reflection system** where the AI acts as both translator and quality reviewer. Instead of simple one-shot translation, the AI performs a complete quality improvement cycle:
 
 #### Step 1: Initial Translation (1x API)
 ```
@@ -588,51 +588,58 @@ Source: "Welcome to {app_name}"
 → Result: "欢迎使用 {app_name}"
 ```
 
-#### Step 2: Reflection - LLM Evaluates Quality (1x API)
+#### Step 2: Quality Reflection (1x API)
+The AI evaluates its own translation as an expert reviewer:
 ```
-Prompt to LLM:
-"Evaluate this translation across 4 dimensions:
-(i) accuracy - errors, mistranslations, omissions
-(ii) fluency - grammar, punctuation, repetitions
-(iii) style - cultural context, tone matching
-(iv) terminology - consistency, domain terms
+AI Reflection Task:
+"Review the translation you just created. Analyze it across 4 dimensions:
+(i) Accuracy: Are there any errors, mistranslations, or omissions?
+(ii) Fluency: Does it sound natural? Any grammar or punctuation issues?
+(iii) Style: Does it match the tone and cultural context appropriately?
+(iv) Terminology: Are domain terms used consistently and correctly?
 
-Provide constructive suggestions for improvement."
+Provide specific, actionable suggestions for improvement."
 
-→ LLM Response:
-"[welcome.message] Consider using '欢迎来到' instead of '欢迎使用' 
-for a warmer, more inviting tone that better matches 'Welcome to'"
+→ AI Self-Critique:
+"[welcome.message] The translation '欢迎使用 {app_name}' is accurate but 
+could be more natural. Consider '欢迎来到' which conveys a warmer, more 
+inviting tone that better matches the welcoming nature of 'Welcome to'."
 ```
 
-#### Step 3: Improvement - LLM Applies Suggestions (1x API)
+#### Step 3: Self-Improvement (1x API)
+The AI refines the translation based on its own expert feedback:
 ```
-Prompt to LLM:
-"Original: Welcome to {app_name}
-Initial: 欢迎使用 {app_name}
-Suggestion: Use '欢迎来到' for warmer tone
+AI Improvement Task:
+"Based on your expert analysis, improve the translation:
+Original: Welcome to {app_name}
+Initial Translation: 欢迎使用 {app_name}
+Your Suggestion: Use '欢迎来到' for a warmer, more natural tone
 
-Edit the translation ensuring accuracy, fluency, style, terminology."
+Create the improved version while maintaining accuracy and format."
 
-→ LLM Response:
+→ AI Improved Translation:
 "[welcome.message] 欢迎来到 {app_name}"
 ```
 
-#### Why This Approach?
+#### Why Agentic Reflection Works
 
-**Advantages:**
-- ✅ **LLM Self-Evaluation**: AI discovers subtle quality issues humans/rules might miss
-- ✅ **Deep Analysis**: Evaluates accuracy, fluency, style, cultural context
-- ✅ **Explicit Reasoning**: Generates specific, actionable improvement suggestions
-- ✅ **Higher Quality**: Iterative refinement produces more natural, accurate translations
+**Key Advantages:**
 
-**Cost:**
-- 3x API calls per batch (translate → reflect → improve)
-- For 100 keys with batch-size 20: 15 total API calls (5 translate + 5 reflect + 5 improve)
-- Trade-off: 3x cost for significantly higher translation quality
+1. **AI as Expert Reviewer**: The same AI that translated understands the context, nuances, and challenges - making it uniquely qualified to critique and improve its own work
+   
+2. **Beyond Static Rules**: Instead of checking against predefined patterns, the AI dynamically identifies issues specific to each translation's context, tone, and cultural appropriateness
 
-**Configurable:**
-- Batch size: `--batch-size 10` (smaller = safer, larger = efficient)
-- Model selection: Stronger models (GPT-5, Claude Sonnet 4.5) handle larger batches better
+3. **Contextual Improvements**: The AI generates specific, actionable suggestions tailored to each piece of content rather than applying generic fixes
+
+4. **Iterative Quality**: Each translation benefits from a complete review-and-refine cycle, catching subtle issues in fluency, tone, and cultural fit that single-pass translation might miss
+
+**Implementation Details:**
+
+- **Cost Structure**: 3x API calls per batch (translate → reflect → improve)
+- **Example**: For 100 keys with batch-size 20: 15 total API calls (5 translate + 5 reflect + 5 improve)
+- **Trade-off**: 3x API cost in exchange for significantly higher translation quality
+- **Optimization**: Adjust `--batch-size` based on your needs (smaller batches = more reliable, larger = more efficient)
+- **Model Impact**: More capable models (GPT-5, Claude Sonnet 4.5, Gemini 2.5 Pro) produce better reflection insights and improvements
 
 ## 💡 Examples
 
@@ -986,13 +993,13 @@ Jta also supports any other language that your chosen AI provider supports - jus
 
 **Q: How is this different from other translation tools?**
 
-A: Jta's true Agentic approach following Andrew Ng's methodology sets it apart:
-1. **AI Self-Evaluation**: LLM evaluates its own translations across accuracy, fluency, style, terminology
-2. **Iterative Improvement**: Two-step reflection (evaluate → improve) produces higher quality
-3. **Context-aware**: Understands domain terminology and cultural nuances
-4. **Format-safe**: Never breaks your placeholders or markup
-5. **Incremental**: Saves 80-90% on updates by only translating changes
-6. **Production-ready**: Built with Go for reliability and performance
+A: Jta uses an **agentic reflection mechanism** that goes beyond traditional translation:
+
+1. **AI Self-Review**: The AI doesn't just translate - it critically evaluates its own work across accuracy, fluency, style, and terminology, then refines it based on its expert analysis
+2. **Dynamic Quality Control**: Instead of static post-processing rules, the AI generates contextual, specific improvements for each piece of content
+3. **Intelligent Context**: Automatically detects and maintains domain terminology, understands cultural nuances, and preserves technical formats
+4. **Incremental Intelligence**: Translates only new or modified content, saving 80-90% on API costs for updates
+5. **Production-Ready**: Built with Go for reliability, performance, and robust error handling
 
 ## 🤝 Contributing
 
