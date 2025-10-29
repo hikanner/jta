@@ -424,10 +424,24 @@ func (bp *BatchProcessor) parseBatchResponse(content string, items []domain.Batc
 		}
 	}
 
-	// If parsing failed, try to extract any useful translations
+	// Validate that all items were parsed
 	if len(results) == 0 {
 		return nil, domain.NewFormatError("failed to parse translations from response", nil).
 			WithContext("item_count", len(items))
+	}
+
+	// Check if all items were successfully parsed
+	if len(results) != len(items) {
+		missing := []string{}
+		for _, item := range items {
+			if _, exists := results[item.Key]; !exists {
+				missing = append(missing, item.Key)
+			}
+		}
+		return nil, domain.NewFormatError("incomplete batch response", nil).
+			WithContext("expected_count", len(items)).
+			WithContext("actual_count", len(results)).
+			WithContext("missing_keys", strings.Join(missing, ", "))
 	}
 
 	return results, nil
