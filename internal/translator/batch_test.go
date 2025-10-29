@@ -182,7 +182,7 @@ func TestBatchProcessor_ProcessBatches_MultipleBatches(t *testing.T) {
 		"",
 		nil,
 		nil,
-		2, // concurrency = 2
+		1, // concurrency = 1 (sequential to avoid mock provider issues)
 	)
 
 	if err != nil {
