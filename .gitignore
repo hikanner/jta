@@ -13,7 +13,7 @@
 
 # Build artifacts
 dist/
-jta
+/jta
 
 # IDE
 .idea/

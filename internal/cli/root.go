@@ -31,6 +31,7 @@ var (
 	yesFlag            bool
 	verboseFlag        bool
 	listLanguagesFlag  bool
+	versionFlag        bool
 )
 
 // NewRootCmd creates the root command
@@ -80,6 +81,7 @@ Key Features:
 	// Add flags
 	rootCmd.Flags().StringVar(&targetLangs, "to", "", "Target language(s), comma-separated (e.g., zh,ja,ko) [REQUIRED]")
 	rootCmd.Flags().BoolVar(&listLanguagesFlag, "list-languages", false, "List all supported languages and exit")
+	rootCmd.Flags().BoolVar(&versionFlag, "version", false, "Print version information and exit")
 
 	// AI Provider settings
 	rootCmd.Flags().StringVar(&providerFlag, "provider", "openai", "AI provider: openai, anthropic, or gemini")
@@ -117,6 +119,12 @@ Key Features:
 }
 
 func runTranslate(cmd *cobra.Command, args []string) error {
+	// Handle --version flag
+	if versionFlag {
+		PrintVersion()
+		return nil
+	}
+
 	// Handle --list-languages flag
 	if listLanguagesFlag {
 		listLanguages()
