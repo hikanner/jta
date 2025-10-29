@@ -11,6 +11,28 @@
 
 > AI-powered Agentic JSON Translation tool with intelligent quality optimization
 
+## 📑 Table of Contents
+
+- [Key Features](#-key-features)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Documentation](#-documentation)
+  - [Terminology Management](#terminology-management)
+  - [Incremental Translation](#incremental-translation)
+  - [Format Protection](#format-protection)
+- [Supported AI Providers](#-supported-ai-providers)
+- [Supported Languages](#-supported-languages)
+- [Architecture](#️-architecture)
+- [Examples](#-examples)
+- [Configuration](#-configuration)
+- [Troubleshooting](#-troubleshooting)
+- [FAQ](#-faq)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+- [Support](#-support)
+- [Roadmap](#️-roadmap)
+
 Jta is a production-ready command-line tool that uses AI to translate JSON internationalization files with **exceptional accuracy and consistency**. Following Andrew Ng's Translation Agent methodology, it features **true Agentic reflection** (translate → reflect → improve), automatic terminology detection, and robust format preservation for production-grade translations.
 
 ## ✨ Key Features
