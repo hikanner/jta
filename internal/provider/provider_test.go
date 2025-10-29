@@ -430,8 +430,6 @@ func TestNewOpenAIProvider_EmptyAPIKey(t *testing.T) {
 	}
 }
 
-
-
 func TestOpenAIProvider_Name(t *testing.T) {
 	provider, err := NewOpenAIProvider("sk-test", "gpt-4")
 	if err != nil {
@@ -510,7 +508,7 @@ func TestOpenAIProvider_GetModelName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewOpenAIProvider() error = %v", err)
 	}
-	
+
 	modelName := provider.GetModelName()
 	if modelName != "gpt-4-turbo" {
 		t.Errorf("GetModelName() = %s, want gpt-4-turbo", modelName)
@@ -522,7 +520,7 @@ func TestAnthropicProvider_GetModelName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAnthropicProvider() error = %v", err)
 	}
-	
+
 	modelName := provider.GetModelName()
 	if modelName != "claude-3-opus" {
 		t.Errorf("GetModelName() = %s, want claude-3-opus", modelName)
@@ -535,8 +533,12 @@ func TestGeminiProvider_GetModelName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGeminiProvider() error = %v", err)
 	}
-	defer provider.Close()
-	
+	defer func() {
+		if err := provider.Close(); err != nil {
+			t.Errorf("Close() error = %v", err)
+		}
+	}()
+
 	modelName := provider.GetModelName()
 	if modelName != "gemini-1.5-pro" {
 		t.Errorf("GetModelName() = %s, want gemini-1.5-pro", modelName)

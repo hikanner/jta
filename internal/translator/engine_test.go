@@ -257,7 +257,8 @@ func TestNewEngine(t *testing.T) {
 	engine := NewEngine(mockProvider, termManager)
 
 	if engine == nil {
-		t.Error("NewEngine() returned nil")
+		t.Fatal("NewEngine() returned nil")
+		return
 	}
 
 	if engine.provider != mockProvider {
@@ -436,7 +437,7 @@ func TestEngine_InferContext(t *testing.T) {
 	mockProvider := provider.NewMockProvider("gpt-4")
 	termManager := terminology.NewManager(mockProvider)
 	engine := NewEngine(mockProvider, termManager)
-	
+
 	tests := []struct {
 		name     string
 		keyPath  string
@@ -508,7 +509,7 @@ func TestEngine_InferContext(t *testing.T) {
 			expected: "general",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := engine.inferContext(tt.keyPath)
