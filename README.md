@@ -15,6 +15,7 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 
 ## 📑 Table of Contents
 
+- [Agent Skills](#-agent-skills)
 - [Key Features](#-key-features)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -33,6 +34,55 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 - [License](#-license)
 - [Acknowledgments](#-acknowledgments)
 - [Support](#-support)
+
+## 🤖 Agent Skills
+
+Jta can be used as an [Agent Skill](https://docs.anthropic.com/docs/agents-and-tools/agent-skills) to enable AI agents like Claude to automatically translate JSON i18n files.
+
+### Quick Start with Skills
+
+**For Individual Users:**
+```bash
+# Copy the skill to your Claude skills directory
+cp -r skills/jta-translation ~/.claude/skills/
+
+# Or create a symbolic link (recommended for development)
+ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+```
+
+**For Project Teams:**
+```bash
+# The skill is already in the repository at skills/jta-translation
+# When team members clone the repo, they can use it immediately
+cp -r skills/jta-translation .claude/skills/
+```
+
+**Using the Skill:**
+
+Once installed, simply ask your AI agent:
+
+> "Translate my en.json to Chinese, Japanese, and Korean"
+
+The agent will automatically:
+1. Install Jta if needed
+2. Verify API key configuration
+3. Execute translation with optimal settings
+4. Show results and statistics
+
+### What's Included
+
+The [skills/jta-translation](skills/jta-translation) directory contains:
+- **SKILL.md** - Core skill definition for AI agents
+- **reference.md** - Detailed technical documentation
+- **examples/** - Step-by-step use cases:
+  - Basic translation workflow
+  - Incremental translation mode
+  - CI/CD integration
+- **scripts/** - Installation helpers
+
+### Learn More
+
+See [skills/README.md](skills/README.md) for complete documentation on using Jta as an Agent Skill.
 
 ## ✨ Key Features
 

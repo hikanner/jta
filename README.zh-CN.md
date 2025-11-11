@@ -15,6 +15,7 @@ Jta 是一个生产级的命令行工具，使用 AI 翻译 JSON 国际化文件
 
 ## 📑 目录
 
+- [Agent Skills](#-agent-skills)
 - [核心特性](#-核心特性)
 - [安装](#-安装)
 - [快速开始](#-快速开始)
@@ -33,6 +34,55 @@ Jta 是一个生产级的命令行工具，使用 AI 翻译 JSON 国际化文件
 - [许可证](#-许可证)
 - [致谢](#-致谢)
 - [支持](#-支持)
+
+## 🤖 Agent Skills
+
+Jta 可以作为 [Agent Skill](https://docs.anthropic.com/docs/agents-and-tools/agent-skills) 使用，让 Claude 等 AI 智能体能够自动翻译 JSON 国际化文件。
+
+### 快速开始
+
+**个人用户：**
+```bash
+# 复制技能到 Claude skills 目录
+cp -r skills/jta-translation ~/.claude/skills/
+
+# 或创建符号链接（开发时推荐）
+ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+```
+
+**团队使用：**
+```bash
+# 技能已经在仓库的 skills/jta-translation 目录中
+# 团队成员克隆仓库后可以直接使用
+cp -r skills/jta-translation .claude/skills/
+```
+
+**使用技能：**
+
+安装后，只需向 AI 智能体提问：
+
+> "把我的 en.json 翻译成中文、日文和韩文"
+
+智能体将自动：
+1. 安装 Jta（如需要）
+2. 验证 API 密钥配置
+3. 使用最佳设置执行翻译
+4. 显示结果和统计信息
+
+### 包含内容
+
+[skills/jta-translation](skills/jta-translation) 目录包含：
+- **SKILL.md** - AI 智能体的核心技能定义
+- **reference.md** - 详细技术文档
+- **examples/** - 分步使用案例：
+  - 基础翻译工作流
+  - 增量翻译模式
+  - CI/CD 集成
+- **scripts/** - 安装辅助脚本
+
+### 了解更多
+
+查看 [skills/README.md](skills/README.md) 获取完整的 Agent Skill 使用文档。
 
 ## ✨ 核心特性
 
