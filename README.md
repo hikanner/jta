@@ -33,7 +33,6 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 - [License](#-license)
 - [Acknowledgments](#-acknowledgments)
 - [Support](#-support)
-- [Roadmap](#️-roadmap)
 
 ## ✨ Key Features
 
@@ -946,7 +945,7 @@ A: For a 100-key file using OpenAI GPT-4o with Agentic reflection (3x API calls)
 
 **Q: Can I translate offline or use my own models?**
 
-A: Currently, Jta requires an internet connection and uses cloud AI providers. Local model support is planned for a future release.
+A: Currently, Jta requires an internet connection and uses cloud AI providers (OpenAI, Anthropic, Google Gemini).
 
 **Q: Does Jta support variables inside translated strings?**
 
@@ -1047,17 +1046,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/hikanner/jta/discussions)
 - 📖 **Documentation**: [Wiki](https://github.com/hikanner/jta/wiki)
 - ⭐ **Star us**: If you find Jta useful, give us a star on GitHub!
-
-## 🗺️ Roadmap
-
-- [ ] Support for local/self-hosted LLMs
-- [ ] Interactive translation review mode
-- [ ] Translation memory (TMX) integration
-- [ ] Custom prompt templates
-- [ ] Web UI for terminology management
-- [ ] Support for additional file formats (YAML, XML, PO)
-- [ ] Translation statistics and analytics
-- [ ] A/B testing for translation quality
 
 ---
 

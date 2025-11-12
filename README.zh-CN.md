@@ -33,7 +33,6 @@ Jta 是一个生产级的命令行工具，使用 AI 翻译 JSON 国际化文件
 - [许可证](#-许可证)
 - [致谢](#-致谢)
 - [支持](#-支持)
-- [路线图](#️-路线图)
 
 ## ✨ 核心特性
 
@@ -946,7 +945,7 @@ jta en.json --to zh --verbose
 
 **问：我可以离线翻译或使用自己的模型吗？**
 
-答：目前，Jta 需要互联网连接并使用云 AI 提供商。本地模型支持计划在未来版本中提供。
+答：目前，Jta 需要互联网连接并使用云 AI 提供商（OpenAI、Anthropic、Google Gemini）。
 
 **问：Jta 是否支持翻译字符串中的变量？**
 
@@ -1047,17 +1046,6 @@ MIT 许可证 - 详见 [LICENSE](LICENSE)。
 - 💬 **讨论**：[GitHub Discussions](https://github.com/hikanner/jta/discussions)
 - 📖 **文档**：[Wiki](https://github.com/hikanner/jta/wiki)
 - ⭐ **给我们星标**：如果您觉得 Jta 有用，请在 GitHub 上给我们一个星标！
-
-## 🗺️ 路线图
-
-- [ ] 支持本地/自托管 LLM
-- [ ] 交互式翻译审查模式
-- [ ] 翻译记忆库（TMX）集成
-- [ ] 自定义提示模板
-- [ ] 术语管理 Web UI
-- [ ] 支持其他文件格式（YAML、XML、PO）
-- [ ] 翻译统计和分析
-- [ ] 翻译质量 A/B 测试
 
 ---
 
