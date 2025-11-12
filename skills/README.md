@@ -15,8 +15,7 @@ Enables AI agents to automatically translate JSON i18n files with Agentic qualit
 **Location:** [jta/](jta/)
 
 **Core Files:**
-- [SKILL.md](jta/SKILL.md) - Main skill definition for AI agents
-- [reference.md](jta/reference.md) - Detailed technical reference
+- [SKILL.md](jta/SKILL.md) - Complete skill definition and instructions for AI agents
 - [examples/](jta/examples/) - Step-by-step use cases
 - [scripts/](jta/scripts/) - Helper scripts (installation, etc.)
 
@@ -255,7 +254,6 @@ To improve the jta skill:
 ## Support
 
 - 📖 **Skill Documentation**: [jta/SKILL.md](jta/SKILL.md)
-- 📚 **Technical Reference**: [jta/reference.md](jta/reference.md)
 - 💡 **Examples**: [jta/examples/](jta/examples/)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/hikanner/jta/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/hikanner/jta/discussions)

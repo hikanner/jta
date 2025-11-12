@@ -72,8 +72,7 @@ The agent will automatically:
 ### What's Included
 
 The [skills/jta](skills/jta) directory contains:
-- **SKILL.md** - Core skill definition for AI agents
-- **reference.md** - Detailed technical documentation
+- **SKILL.md** - Complete skill definition and instructions for AI agents
 - **examples/** - Step-by-step use cases:
   - Basic translation workflow
   - Incremental translation mode

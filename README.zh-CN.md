@@ -72,8 +72,7 @@ cp -r skills/jta .claude/skills/
 ### 包含内容
 
 [skills/jta](skills/jta) 目录包含：
-- **SKILL.md** - AI 智能体的核心技能定义
-- **reference.md** - 详细技术文档
+- **SKILL.md** - AI 智能体的完整技能定义和使用说明
 - **examples/** - 分步使用案例：
   - 基础翻译工作流
   - 增量翻译模式
