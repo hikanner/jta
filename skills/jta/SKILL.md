@@ -69,25 +69,31 @@ fi
 jta --version
 ```
 
-### Step 3: Check for API key
+### Step 3: Check for API key and set provider
 
-Jta requires an AI provider API key. Check in this order:
+Jta requires an AI provider API key. Check in this order and set the provider flag:
 
 ```bash
-# Check for API keys
-if [[ -n "$OPENAI_API_KEY" ]]; then
-  echo "Using OpenAI"
-elif [[ -n "$ANTHROPIC_API_KEY" ]]; then
-  echo "Using Anthropic"
+# Detect API key and set provider flag
+if [[ -n "$ANTHROPIC_API_KEY" ]]; then
+  echo "✓ Anthropic API key found"
+  PROVIDER_FLAG="--provider anthropic"
 elif [[ -n "$GEMINI_API_KEY" ]]; then
-  echo "Using Gemini"
+  echo "✓ Gemini API key found"
+  PROVIDER_FLAG="--provider gemini"
+elif [[ -n "$OPENAI_API_KEY" ]]; then
+  echo "✓ OpenAI API key found"
+  PROVIDER_FLAG=""  # OpenAI is default, no flag needed
 else
-  echo "No API key found. Please set one of:"
+  echo "✗ No API key found. Please set one of:"
   echo "  export OPENAI_API_KEY=sk-..."
   echo "  export ANTHROPIC_API_KEY=sk-ant-..."
   echo "  export GEMINI_API_KEY=..."
+  exit 1
 fi
 ```
+
+**Important:** Save the `PROVIDER_FLAG` value to use in translation commands.
 
 ### Step 4: Identify source file
 
@@ -113,34 +119,36 @@ Ask user (if not specified in their request):
 
 ### Step 6: Execute translation
 
+**Always use `$PROVIDER_FLAG` from Step 3** to ensure the correct AI provider is used:
+
 ```bash
-# Basic translation
-jta <source-file> --to <target-langs>
+# Basic translation with detected provider
+jta <source-file> --to <target-langs> $PROVIDER_FLAG
 
 # Examples:
 # Single language
-jta en.json --to zh
+jta en.json --to zh $PROVIDER_FLAG
 
 # Multiple languages
-jta en.json --to zh,ja,ko
+jta en.json --to zh,ja,ko $PROVIDER_FLAG
 
 # Incremental mode (for updates)
-jta en.json --to zh --incremental
+jta en.json --to zh --incremental $PROVIDER_FLAG
 
 # With custom output
-jta en.json --to zh --output ./locales/zh.json
+jta en.json --to zh --output ./locales/zh.json $PROVIDER_FLAG
 
 # Non-interactive mode (for multiple languages)
-jta en.json --to zh,ja,ko,es,fr -y
+jta en.json --to zh,ja,ko,es,fr -y $PROVIDER_FLAG
 
-# Use specific provider for quality
+# Override with specific model for quality
 jta en.json --to zh --provider anthropic --model claude-sonnet-4-5
 
 # Translate specific keys only
-jta en.json --to zh --keys "settings.*,user.*"
+jta en.json --to zh --keys "settings.*,user.*" $PROVIDER_FLAG
 
 # Exclude certain keys
-jta en.json --to zh --exclude-keys "admin.*,internal.*"
+jta en.json --to zh --exclude-keys "admin.*,internal.*" $PROVIDER_FLAG
 ```
 
 ### Step 7: Verify results
@@ -195,22 +203,24 @@ Users can manually edit these files for custom terminology.
 
 ## Common Patterns
 
+**Note:** Always include `$PROVIDER_FLAG` (from Step 3) in your commands.
+
 ### Pattern 1: First-time translation
 ```bash
 # User: "Translate my en.json to Chinese and Japanese"
-jta locales/en.json --to zh,ja -y
+jta locales/en.json --to zh,ja -y $PROVIDER_FLAG
 ```
 
 ### Pattern 2: Update existing translations
 ```bash
 # User: "I added new keys to en.json, update the translations"
-jta locales/en.json --to zh,ja --incremental -y
+jta locales/en.json --to zh,ja --incremental -y $PROVIDER_FLAG
 ```
 
 ### Pattern 3: Translate specific sections
 ```bash
 # User: "Only translate the settings and user sections"
-jta en.json --to zh --keys "settings.**,user.**"
+jta en.json --to zh --keys "settings.**,user.**" $PROVIDER_FLAG
 ```
 
 ### Pattern 4: High-quality translation
@@ -222,7 +232,7 @@ jta en.json --to zh --provider anthropic --model claude-sonnet-4-5
 ### Pattern 5: RTL languages
 ```bash
 # User: "Translate to Arabic and Hebrew"
-jta en.json --to ar,he -y
+jta en.json --to ar,he -y $PROVIDER_FLAG
 # Jta automatically handles bidirectional text markers
 ```
 
@@ -316,27 +326,29 @@ Always inform the user of:
 
 ## Advanced Options
 
+**Note:** Remember to include `$PROVIDER_FLAG` in your commands.
+
 ```bash
 # Skip terminology detection (use existing)
-jta en.json --to zh --skip-terminology
+jta en.json --to zh --skip-terminology $PROVIDER_FLAG
 
 # Disable terminology management completely
-jta en.json --to zh --no-terminology
+jta en.json --to zh --no-terminology $PROVIDER_FLAG
 
 # Re-detect terminology (when source language changes)
-jta en.json --to zh --redetect-terms
+jta en.json --to zh --redetect-terms $PROVIDER_FLAG
 
 # Custom terminology directory (for shared terms)
-jta en.json --to zh --terminology-dir ../shared-terms/
+jta en.json --to zh --terminology-dir ../shared-terms/ $PROVIDER_FLAG
 
 # Specify source language explicitly
-jta myfile.json --source-lang en --to zh
+jta myfile.json --source-lang en --to zh $PROVIDER_FLAG
 
 # Custom batch size and concurrency
-jta en.json --to zh --batch-size 20 --concurrency 3
+jta en.json --to zh --batch-size 20 --concurrency 3 $PROVIDER_FLAG
 
 # Verbose output for debugging
-jta en.json --to zh --verbose
+jta en.json --to zh --verbose $PROVIDER_FLAG
 ```
 
 ## Examples
