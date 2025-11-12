@@ -15,7 +15,7 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 
 ## 📑 Table of Contents
 
-- [Agent Skills](#-agent-skills)
+- [🔥 Agent Skills](#-agent-skills)
 - [Key Features](#-key-features)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -35,7 +35,7 @@ Jta is a production-ready command-line tool that uses AI to translate JSON inter
 - [Acknowledgments](#-acknowledgments)
 - [Support](#-support)
 
-## 🤖 Agent Skills
+## 🔥 Agent Skills
 
 Jta can be used as an [Agent Skill](https://docs.anthropic.com/docs/agents-and-tools/agent-skills) to enable AI agents like Claude to automatically translate JSON i18n files.
 
