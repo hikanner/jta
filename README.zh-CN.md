@@ -44,17 +44,17 @@ Jta 可以作为 [Agent Skill](https://docs.anthropic.com/docs/agents-and-tools/
 **个人用户：**
 ```bash
 # 复制技能到 Claude skills 目录
-cp -r skills/jta-translation ~/.claude/skills/
+cp -r skills/jta ~/.claude/skills/
 
 # 或创建符号链接（开发时推荐）
-ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+ln -s $(pwd)/skills/jta ~/.claude/skills/jta
 ```
 
 **团队使用：**
 ```bash
-# 技能已经在仓库的 skills/jta-translation 目录中
+# 技能已经在仓库的 skills/jta 目录中
 # 团队成员克隆仓库后可以直接使用
-cp -r skills/jta-translation .claude/skills/
+cp -r skills/jta .claude/skills/
 ```
 
 **使用技能：**
@@ -71,7 +71,7 @@ cp -r skills/jta-translation .claude/skills/
 
 ### 包含内容
 
-[skills/jta-translation](skills/jta-translation) 目录包含：
+[skills/jta](skills/jta) 目录包含：
 - **SKILL.md** - AI 智能体的核心技能定义
 - **reference.md** - 详细技术文档
 - **examples/** - 分步使用案例：

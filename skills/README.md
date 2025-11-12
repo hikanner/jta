@@ -8,17 +8,17 @@ This directory contains Agent Skills that enable AI agents (like Claude) to use 
 
 ## Available Skills
 
-### jta-translation
+### jta
 
 Enables AI agents to automatically translate JSON i18n files with Agentic quality optimization.
 
-**Location:** [jta-translation/](jta-translation/)
+**Location:** [jta/](jta/)
 
 **Core Files:**
-- [SKILL.md](jta-translation/SKILL.md) - Main skill definition for AI agents
-- [reference.md](jta-translation/reference.md) - Detailed technical reference
-- [examples/](jta-translation/examples/) - Step-by-step use cases
-- [scripts/](jta-translation/scripts/) - Helper scripts (installation, etc.)
+- [SKILL.md](jta/SKILL.md) - Main skill definition for AI agents
+- [reference.md](jta/reference.md) - Detailed technical reference
+- [examples/](jta/examples/) - Step-by-step use cases
+- [scripts/](jta/scripts/) - Helper scripts (installation, etc.)
 
 ## Installation
 
@@ -28,10 +28,10 @@ Copy the skill to your Claude skills directory:
 
 ```bash
 # From the jta repository root
-cp -r skills/jta-translation ~/.claude/skills/
+cp -r skills/jta ~/.claude/skills/
 
 # Or create a symbolic link (recommended for development)
-ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+ln -s $(pwd)/skills/jta ~/.claude/skills/jta
 ```
 
 ### For Project Teams
@@ -41,10 +41,10 @@ Add the skill to your project's `.claude/skills/` directory:
 ```bash
 # In your project root
 mkdir -p .claude/skills
-cp -r /path/to/jta/skills/jta-translation .claude/skills/
+cp -r /path/to/jta/skills/jta .claude/skills/
 
 # Commit to version control
-git add .claude/skills/jta-translation
+git add .claude/skills/jta
 git commit -m "feat: add jta translation skill"
 ```
 
@@ -101,7 +101,7 @@ export OPENAI_API_KEY=sk-...
 
 ## Features
 
-The jta-translation skill provides:
+The jta skill provides:
 
 - ✅ **Agentic Translation**: AI translates, evaluates, and improves its own work (3x API calls)
 - ✅ **Smart Terminology**: Automatic detection and consistent translation of domain terms
@@ -227,7 +227,7 @@ export GEMINI_API_KEY=...
 
 1. **Use symbolic links** when developing skills:
    ```bash
-   ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+   ln -s $(pwd)/skills/jta ~/.claude/skills/jta
    ```
 
 2. **Test changes immediately** - modifications to SKILL.md take effect on next agent interaction
@@ -246,17 +246,17 @@ export GEMINI_API_KEY=...
 
 ## Contributing
 
-To improve the jta-translation skill:
+To improve the jta skill:
 
-1. Edit files in `skills/jta-translation/`
+1. Edit files in `skills/jta/`
 2. Test with Claude or another agent
 3. Submit a pull request to the main Jta repository
 
 ## Support
 
-- 📖 **Skill Documentation**: [jta-translation/SKILL.md](jta-translation/SKILL.md)
-- 📚 **Technical Reference**: [jta-translation/reference.md](jta-translation/reference.md)
-- 💡 **Examples**: [jta-translation/examples/](jta-translation/examples/)
+- 📖 **Skill Documentation**: [jta/SKILL.md](jta/SKILL.md)
+- 📚 **Technical Reference**: [jta/reference.md](jta/reference.md)
+- 💡 **Examples**: [jta/examples/](jta/examples/)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/hikanner/jta/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/hikanner/jta/discussions)
 

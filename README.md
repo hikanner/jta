@@ -44,17 +44,17 @@ Jta can be used as an [Agent Skill](https://docs.anthropic.com/docs/agents-and-t
 **For Individual Users:**
 ```bash
 # Copy the skill to your Claude skills directory
-cp -r skills/jta-translation ~/.claude/skills/
+cp -r skills/jta ~/.claude/skills/
 
 # Or create a symbolic link (recommended for development)
-ln -s $(pwd)/skills/jta-translation ~/.claude/skills/jta-translation
+ln -s $(pwd)/skills/jta ~/.claude/skills/jta
 ```
 
 **For Project Teams:**
 ```bash
-# The skill is already in the repository at skills/jta-translation
+# The skill is already in the repository at skills/jta
 # When team members clone the repo, they can use it immediately
-cp -r skills/jta-translation .claude/skills/
+cp -r skills/jta .claude/skills/
 ```
 
 **Using the Skill:**
@@ -71,7 +71,7 @@ The agent will automatically:
 
 ### What's Included
 
-The [skills/jta-translation](skills/jta-translation) directory contains:
+The [skills/jta](skills/jta) directory contains:
 - **SKILL.md** - Core skill definition for AI agents
 - **reference.md** - Detailed technical documentation
 - **examples/** - Step-by-step use cases:
